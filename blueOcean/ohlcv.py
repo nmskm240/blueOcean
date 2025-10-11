@@ -1,8 +1,8 @@
 from __future__ import annotations
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import logging
-import os
 import pandas as pd
 from dataclasses import asdict
 from influxdb_client import Point, InfluxDBClient
@@ -98,7 +98,27 @@ class Ohlcv:
         )
 
 
-class OhlcvRepository:
+class IOhlcvRepository(metaclass=ABCMeta):
+    @abstractmethod
+    def save(self, ohlcv: list[Ohlcv]):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_latest_timestamp(self, symbol: str, timeframe: str) -> datetime | None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def find(
+        self,
+        symbol: str,
+        source: str,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None
+    ) -> list[Ohlcv]:
+        raise NotImplementedError()
+
+
+class OhlcvRepository(IOhlcvRepository):
     def __init__(self, client: InfluxDBClient):
         self.client = client
         self.create_bucket_if_not_exists()
