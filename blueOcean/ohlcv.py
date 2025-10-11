@@ -104,7 +104,7 @@ class IOhlcvRepository(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_latest_timestamp(self, symbol: str, timeframe: str) -> datetime | None:
+    def get_latest_timestamp(self, exchange: str, symbol: str) -> datetime | None:
         raise NotImplementedError()
 
     @abstractmethod
@@ -137,14 +137,14 @@ class OhlcvRepository(IOhlcvRepository):
             logger.info(f"Create bucket {BUCKET_NAME}")
             buckets_api.create_bucket(bucket_name=BUCKET_NAME)
 
-    def get_latest_timestamp(self, symbol: str, timeframe: str) -> datetime | None:
+    def get_latest_timestamp(self, exchange: str, symbol: str) -> datetime | None:
         """InfluxDBから指定されたシンボルと時間足の最新のタイムスタンプを取得します。"""
         query = f"""
         from(bucket: "{BUCKET_NAME}")
           |> range(start: 0)
           |> filter(fn: (r) => r._measurement == "{MEASUREMENT_NAME}")
+          |> filter(fn: (r) => r.source == "{exchange}")
           |> filter(fn: (r) => r.symbol == "{symbol}")
-          |> filter(fn: (r) => r.timeframe == "{timeframe}")
           |> last()
         """
         api = self.client.query_api()
