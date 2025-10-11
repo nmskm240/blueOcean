@@ -1,0 +1,8 @@
+pandas
+scikit-learn
+plotly
+numpy
+backtrader
+logging
+python-dotenv
+influxdb-client
