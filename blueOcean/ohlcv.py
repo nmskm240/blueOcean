@@ -1,12 +1,16 @@
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import logging
+from typing import AsyncGenerator
 import pandas as pd
 from dataclasses import asdict
-from influxdb_client import Point, InfluxDBClient
-from influxdb_client.client.write_api import SYNCHRONOUS
+import ccxt.async_support as ccxt
+from influxdb_client import Point
+from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
+from tenacity import AsyncRetrying, stop_after_attempt
 
 BUCKET_NAME = "historical_data"
 MEASUREMENT_NAME = "ohlcvs"
@@ -119,25 +123,25 @@ class IOhlcvRepository(metaclass=ABCMeta):
 
 
 class OhlcvRepository(IOhlcvRepository):
-    def __init__(self, client: InfluxDBClient):
+    def __init__(self, client: InfluxDBClientAsync):
         self.client = client
         self.create_bucket_if_not_exists()
 
-    def save(self, ohlcvs: list[Ohlcv]):
+    async def save(self, ohlcvs: list[Ohlcv]):
         """OHLCVデータのリストをバッチで書き込みます。"""
         points = [o.to_point() for o in ohlcvs]
-        write_api = self.client.write_api(write_options=SYNCHRONOUS)
-        write_api.write(bucket=BUCKET_NAME, org=self.client.org, record=points)
+        write_api = self.client.write_api()
+        await write_api.write(bucket=BUCKET_NAME, org=self.client.org, record=points)
         logger.info(f"Wrote {len(ohlcvs)} ohlcvs to InfluxDB.")
 
-    def create_bucket_if_not_exists(self):
+    async def create_bucket_if_not_exists(self):
         buckets_api = self.client.buckets_api()
-        bucket = buckets_api.find_bucket_by_name(BUCKET_NAME)
+        bucket = await buckets_api.find_bucket_by_name(BUCKET_NAME)
         if not bucket:
             logger.info(f"Create bucket {BUCKET_NAME}")
-            buckets_api.create_bucket(bucket_name=BUCKET_NAME)
+            await buckets_api.create_bucket(bucket_name=BUCKET_NAME)
 
-    def get_latest_timestamp(self, exchange: str, symbol: str) -> datetime | None:
+    async def get_latest_timestamp(self, exchange: str, symbol: str) -> datetime | None:
         """InfluxDBから指定されたシンボルと時間足の最新のタイムスタンプを取得します。"""
         query = f"""
         from(bucket: "{BUCKET_NAME}")
@@ -148,12 +152,12 @@ class OhlcvRepository(IOhlcvRepository):
           |> last()
         """
         api = self.client.query_api()
-        tables = api.query(query, org=self.client.org)
+        tables = await api.query(query, org=self.client.org)
         if not tables or not tables[0].records:
             return None
         return tables[0].records[0].get_time()
 
-    def find(
+    async def find(
         self,
         symbol: str,
         source: str,
@@ -172,7 +176,7 @@ class OhlcvRepository(IOhlcvRepository):
         for start in start_dates:
             end = (start + pd.offsets.MonthEnd()).to_pydatetime()
             query = self._build_query(symbol, source, start, end, timeframe)
-            tables = api.query(query, org=self.client.org)
+            tables = await api.query(query, org=self.client.org)
             for table in tables:
                 for record in table.records:
                     ohlcv = Ohlcv.from_flux_record(record, symbol, source)
@@ -217,3 +221,75 @@ class OhlcvRepository(IOhlcvRepository):
             union(tables: [o, h, l, c, v, tv])
                 |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
             """
+
+
+class OhlcvFetcher(metaclass=ABCMeta):
+    def __init__(self, source: str):
+        self._source = source
+
+    @property
+    @abstractmethod
+    def longest_since(self) -> datetime:
+        raise NotImplementedError()
+
+    async def fetch_ohlcv_async(self, symbol: str, since_at: datetime | None = None):
+        _since_at = since_at or self.longest_since
+        async for batch in self._fetch_ohlcv_process_async(symbol, _since_at):
+            yield batch
+
+    @abstractmethod
+    async def _fetch_ohlcv_process_async(self, symbol: str, since_at: datetime) -> AsyncGenerator[list[Ohlcv]]:
+        raise NotImplementedError()
+
+
+class CcxtOhlcvFetcher(OhlcvFetcher):
+    TIMEFRAME = "1m"
+
+    @property
+    def longest_since(self):
+        return datetime(2017, 1, 1, tzinfo=UTC)
+
+    async def _fetch_ohlcv_process_async(self, symbol, since_at):
+        meta: type[ccxt.Exchange] = getattr(ccxt, self._source)
+        async with meta() as exchange:
+            await exchange.load_markets()
+
+            timeframe_in_ms = exchange.parse_timeframe(self.TIMEFRAME) * 1000
+            since = int(since_at.timestamp() * 1000) + timeframe_in_ms
+
+            while since < exchange.milliseconds():
+                fetched = await self._try_fetch(exchange, symbol, since)
+                if not fetched:
+                    break
+
+                df = pd.DataFrame(
+                    fetched, columns=["time", "open",
+                                      "high", "low", "close", "volume"]
+                )
+                df["time"] = pd.to_datetime(df["time"], unit="ms", utc=True)
+                df["symbol"] = symbol
+                df["source"] = exchange.name
+
+                if not df.empty:
+                    logger.info(
+                        f'Fetched {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
+                    )
+
+                ohlcvs = Ohlcv.from_dataframe(df)
+
+                if ohlcvs:
+                    yield ohlcvs
+
+                # 次のループの開始時刻を、今回取得したデータの最後の時刻+1タイムフレームに設定
+                last_time = ohlcvs[-1].time
+                since = int(last_time.timestamp() * 1000) + \
+                    exchange.parse_timeframe(self.TIMEFRAME) * 1000
+
+                await asyncio.sleep(exchange.rateLimit / 1000)
+
+    async def _try_fetch(self, exchange: ccxt.Exchange, symbol: str, since: int):
+        async for attempt in AsyncRetrying(stop=stop_after_attempt(3)):
+            with attempt:
+                return await exchange.fetch_ohlcv(
+                    symbol, self.TIMEFRAME, since=since, limit=1000
+                )
