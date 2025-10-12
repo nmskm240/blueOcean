@@ -1,6 +1,6 @@
 from __future__ import annotations
 import backtrader as bt
-import indicators
+from . import indicators
 
 
 class MACross(bt.Strategy):
