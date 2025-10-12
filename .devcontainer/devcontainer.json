@@ -1,6 +1,9 @@
 {
-	"name": "Python 3",
-	"image": "mcr.microsoft.com/devcontainers/python:3",
+	"name": "blueOceanCore",
+    "image": "mcr.microsoft.com/devcontainers/python:3.13-bullseye",
+    "runArgs": [
+        "--network=blueOcean-sandbox"
+    ],
 	"customizations": {
 		"vscode": {
 			"extensions": [
