@@ -10,4 +10,6 @@ dependencies = [
     "logging",
     "python-dotenv",
     "influxdb-client",
+    "nbconvert",
+    "nbformat",
 ]

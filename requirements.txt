@@ -8,3 +8,6 @@ python-dotenv
 influxdb-client[async]
 ccxt==4.5.10
 tenacity
+nbconvert
+nbformat
+pytest
