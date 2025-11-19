@@ -20,3 +20,4 @@ logging
 python-dotenv
 influxdb-client[async]
 tenacity
+pytest
