@@ -3,11 +3,16 @@ name = "blueOcean"
 version = "0.1.0"
 dependencies = [
     "pandas",
-    "scikit-learn",
     "plotly",
     "numpy",
     "backtrader",
     "logging",
     "python-dotenv",
     "influxdb-client",
+]
+[tool.setuptools.packages.find]
+exclude = [
+    "data/",
+    "fetcher/",
+    "notebooks/"
 ]

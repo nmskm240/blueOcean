@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app:
+    image: python:3.13-bullseye
+    container_name: blueocean_app
+    ports: 
+      - "8051:8051"
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    depends_on:
+      - influxdb
+    environment:
+      - INFLUXDB_URL=${INFLUXDB_URL}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - INFLUXDB_ORG=${INFLUXDB_ORG}
+    tty: true
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: blueocean_influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - type: volume
+        source: blueocean_influxdb_data
+        target: /var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=historical_data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+    tty: true
+    stdin_open: true
+
+volumes:
+  blueocean_influxdb_data:

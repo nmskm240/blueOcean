@@ -1,16 +1,15 @@
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
-import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import logging
-from typing import AsyncGenerator
+import time
+from typing import Generator
 import pandas as pd
 from dataclasses import asdict
-import ccxt.async_support as ccxt
+import ccxt
 from influxdb_client import Point
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
-from tenacity import AsyncRetrying, stop_after_attempt
 
 BUCKET_NAME = "historical_data"
 MEASUREMENT_NAME = "ohlcvs"
@@ -232,13 +231,12 @@ class OhlcvFetcher(metaclass=ABCMeta):
     def longest_since(self) -> datetime:
         raise NotImplementedError()
 
-    async def fetch_ohlcv_async(self, symbol: str, since_at: datetime | None = None):
+    def fetch_ohlcv(self, symbol: str, since_at: datetime | None = None):
         _since_at = since_at or self.longest_since
-        async for batch in self._fetch_ohlcv_process_async(symbol, _since_at):
-            yield batch
+        yield from self._fetch_ohlcv_process(symbol, _since_at)
 
     @abstractmethod
-    async def _fetch_ohlcv_process_async(self, symbol: str, since_at: datetime) -> AsyncGenerator[list[Ohlcv]]:
+    def _fetch_ohlcv_process(self, symbol: str, since_at: datetime) -> Generator[list[Ohlcv]]:
         raise NotImplementedError()
 
 
@@ -249,47 +247,51 @@ class CcxtOhlcvFetcher(OhlcvFetcher):
     def longest_since(self):
         return datetime(2017, 1, 1, tzinfo=UTC)
 
-    async def _fetch_ohlcv_process_async(self, symbol, since_at):
+    def _fetch_ohlcv_process(self, symbol: str, since_at: datetime):
         meta: type[ccxt.Exchange] = getattr(ccxt, self._source)
-        async with meta() as exchange:
-            await exchange.load_markets()
+        exchange = meta()
+        exchange.load_markets()
 
-            timeframe_in_ms = exchange.parse_timeframe(self.TIMEFRAME) * 1000
-            since = int(since_at.timestamp() * 1000) + timeframe_in_ms
+        timeframe_ms = exchange.parse_timeframe(self.TIMEFRAME) * 1000
+        since = int(since_at.timestamp() * 1000) + timeframe_ms
 
-            while since < exchange.milliseconds():
-                fetched = await self._try_fetch(exchange, symbol, since)
-                if not fetched:
-                    break
+        while since < exchange.milliseconds():
+            fetched = self._try_fetch(exchange, symbol, since)
+            if not fetched:
+                break
 
-                df = pd.DataFrame(
-                    fetched, columns=["time", "open",
-                                      "high", "low", "close", "volume"]
+            df = pd.DataFrame(
+                fetched,
+                columns=["time", "open", "high", "low", "close", "volume"],
+            )
+            df["time"] = pd.to_datetime(df["time"], unit="ms", utc=True)
+            df["symbol"] = symbol
+            df["source"] = exchange.name
+
+            if not df.empty:
+                logger.info(
+                    f'Fetched {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
                 )
-                df["time"] = pd.to_datetime(df["time"], unit="ms", utc=True)
-                df["symbol"] = symbol
-                df["source"] = exchange.name
 
-                if not df.empty:
-                    logger.info(
-                        f'Fetched {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
-                    )
+            ohlcvs = Ohlcv.from_dataframe(df)
 
-                ohlcvs = Ohlcv.from_dataframe(df)
+            if ohlcvs:
+                yield ohlcvs
 
-                if ohlcvs:
-                    yield ohlcvs
+            last_time = ohlcvs[-1].time
+            since = int(last_time.timestamp() * 1000) + timeframe_ms
 
-                # 次のループの開始時刻を、今回取得したデータの最後の時刻+1タイムフレームに設定
-                last_time = ohlcvs[-1].time
-                since = int(last_time.timestamp() * 1000) + \
-                    exchange.parse_timeframe(self.TIMEFRAME) * 1000
+            time.sleep(exchange.rateLimit / 1000)
 
-                await asyncio.sleep(exchange.rateLimit / 1000)
-
-    async def _try_fetch(self, exchange: ccxt.Exchange, symbol: str, since: int):
-        async for attempt in AsyncRetrying(stop=stop_after_attempt(3)):
-            with attempt:
-                return await exchange.fetch_ohlcv(
+    def _try_fetch(self, exchange: ccxt.Exchange, symbol: str, since: int):
+        """3回リトライ"""
+        for attempt in range(3):
+            try:
+                return exchange.fetch_ohlcv(
                     symbol, self.TIMEFRAME, since=since, limit=1000
                 )
+            except Exception as e:
+                if attempt == 2:
+                    raise
+                logger.warning(f"Retry fetch due to error: {e}")
+                time.sleep(1)

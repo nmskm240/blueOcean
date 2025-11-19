@@ -1,13 +1,22 @@
 {
-	"name": "blueOceanCore",
-    "image": "mcr.microsoft.com/devcontainers/python:3.13-bullseye",
-    "runArgs": [
-        "--network=blueOcean-sandbox"
-    ],
+	"name": "blueOcean",
+	"dockerComposeFile": [
+		"compose.yaml"
+	],
+	"forwardPorts": [
+		8086, // influxdb
+		8501, // streamlit
+	],
+	"service": "app",
+	"workspaceFolder": "/workspace",
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"ms-python.python"
+				"ms-python.python",
+				"openai.chatgpt",
+				"ms-toolsai.jupyter",
+				"ms-python.isort",
+				"ms-python.black-formatter"
 			]
 		}
 	},
