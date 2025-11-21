@@ -4,7 +4,6 @@
 		"compose.yaml"
 	],
 	"forwardPorts": [
-		8086, // influxdb
 		8501, // streamlit
 	],
 	"service": "app",
@@ -16,7 +15,8 @@
 				"openai.chatgpt",
 				"ms-toolsai.jupyter",
 				"ms-python.isort",
-				"ms-python.black-formatter"
+				"ms-python.black-formatter",
+				"ms-toolsai.datawrangler"
 			]
 		}
 	},
