@@ -1,5 +1,8 @@
 pandas
+pandas-ta
 numpy
+duckdb
+pyarrow
 scikit-learn
 sktime
 pmdarima
@@ -18,5 +21,4 @@ streamlit
 
 logging
 python-dotenv
-influxdb-client[async]
 tenacity
