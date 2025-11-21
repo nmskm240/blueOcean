@@ -111,7 +111,7 @@ class OhlcvRepository(IOhlcvRepository):
 
         sql = f"""
             SELECT max(time) AS latest
-            FROM read_parquet(`{path}`)
+            FROM read_parquet('{path}')
         """
 
         try:
