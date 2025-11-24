@@ -3,7 +3,6 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import IntEnum
-import logging
 from pathlib import Path
 import time
 from typing import Generator
@@ -14,8 +13,7 @@ import pyarrow.parquet as pq
 from dataclasses import asdict
 import ccxt
 
-
-logger = logging.getLogger(__name__)
+from blueOcean.logging import logger
 
 
 @dataclass
@@ -37,7 +35,7 @@ class Ohlcv:
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame) -> list[Ohlcv]:
         return [cls(**row) for row in df.reset_index(drop=True).to_dict("records")]
-    
+
 
 class Timeframe(IntEnum):
     ONE_MINUTE = 1
@@ -67,9 +65,10 @@ class IOhlcvRepository(metaclass=ABCMeta):
         source: str,
         interval: Timeframe = Timeframe.ONE_MINUTE,
         start_date: datetime | None = None,
-        end_date: datetime | None = None
+        end_date: datetime | None = None,
     ) -> list[Ohlcv]:
         raise NotImplementedError()
+
 
 class OhlcvRepository(IOhlcvRepository):
     def __init__(self, base_path: str = "./data"):
@@ -93,16 +92,18 @@ class OhlcvRepository(IOhlcvRepository):
             chunk = chunk.drop(columns=["year_month"])
             chunk["time"] = chunk.index
             chunk = chunk[["time", "open", "high", "low", "close", "volume"]]
-            table = pa.Table.from_pandas(chunk,preserve_index=False)
+            table = pa.Table.from_pandas(chunk, preserve_index=False)
 
             if filename.exists():
                 old = pq.read_table(filename).to_pandas()
-                merged = ( 
-                    pd.concat([old, chunk], ignore_index=True) 
-                    .drop_duplicates(subset=["time"]) 
-                    .sort_values("time") )
+                merged = (
+                    pd.concat([old, chunk], ignore_index=True)
+                    .drop_duplicates(subset=["time"])
+                    .sort_values("time")
+                )
                 table = pa.Table.from_pandas(merged, preserve_index=False)
 
+            logger.info(f"{symbol} {ym} parquet update")
             pq.write_table(table, filename)
 
     def get_latest_timestamp(self, source, symbol):
@@ -119,8 +120,15 @@ class OhlcvRepository(IOhlcvRepository):
             return pd.to_datetime(row[0]).to_pydatetime()
         except:
             return None
-        
-    def find(self, symbol, source, timeframe = Timeframe.ONE_MINUTE, start_date = None, end_date = None):
+
+    def find(
+        self,
+        symbol,
+        source,
+        timeframe=Timeframe.ONE_MINUTE,
+        start_date=None,
+        end_date=None,
+    ):
         symbol_dir = self._parse_from_symbol_to_dir(symbol)
         path = Path(self._base_dir, source, symbol_dir, "*.parquet")
 
@@ -162,7 +170,9 @@ class OhlcvFetcher(metaclass=ABCMeta):
         yield from self._fetch_ohlcv_process(symbol, _since_at)
 
     @abstractmethod
-    def _fetch_ohlcv_process(self, symbol: str, since_at: datetime) -> Generator[list[Ohlcv]]:
+    def _fetch_ohlcv_process(
+        self, symbol: str, since_at: datetime
+    ) -> Generator[list[Ohlcv]]:
         raise NotImplementedError()
 
 
@@ -194,7 +204,7 @@ class CcxtOhlcvFetcher(OhlcvFetcher):
 
             if not df.empty:
                 logger.info(
-                    f'Fetched {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
+                    f'Fetched from {exchange.name} {symbol} {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
                 )
 
             ohlcvs = Ohlcv.from_dataframe(df)
