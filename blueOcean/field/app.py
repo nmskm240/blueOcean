@@ -1,6 +1,13 @@
 import streamlit as st
 
-top_page = st.Page(page="./pages/top_page.py", title="Top", default=True)
+from blueOcean.field.pages.strategies import strategy_pages
 
-nav = st.navigation([top_page])
+nav = st.navigation(
+    {
+        "": [
+            st.Page("./pages/top.py", title="Top", default=True),
+        ],
+        "Strategies": [st.Page(p.render, title=p.title, url_path=p.strategy_cls.__name__) for p in strategy_pages],
+    }
+)
 nav.run()
