@@ -11,13 +11,11 @@ from traitlets import Bool, List
 
 class MarkdownInlineFigurePreprocessor(Preprocessor):
     """Inline extracted image outputs in Markdown exports.
-
     When nbconvert converts notebooks to Markdown it extracts binary outputs to
     the ``resources['outputs']`` dictionary and Markdown references the files by
     their generated names (for example ``figure_1.png``).  This preprocessor
     rewrites those references into ``data:`` URIs so the exported Markdown keeps
     the images embedded as Base64 instead of relying on external files.
-
     Only image MIME types listed in :attr:`inline_mimetypes` are processed.  By
     default PNG, JPEG, GIF and SVG outputs are handled.  The behaviour can be
     configured via the regular nbconvert configuration system.
@@ -68,7 +66,7 @@ class MarkdownInlineFigurePreprocessor(Preprocessor):
                         continue
 
                     data_uri = self._build_data_uri(binary, mimetype)
-                    filenames[mimetype] = data_uri
+                    output['data']['text/markdown'] = f"![image]({data_uri})"
 
                     if self.remove_extracted_files:
                         outputs.pop(filename, None)
