@@ -9,6 +9,7 @@ pmdarima
 prophet
 
 matplotlib
+plotly
 
 ccxt==4.5.10
 backtrader
@@ -18,6 +19,7 @@ nbformat>=4.2.0
 nbconvert
 ipykernel
 streamlit
+quantstats
 
 logging
 python-dotenv

@@ -1,10 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Callable, List, TypeVar
+from typing import Any, Callable, Dict, List, Tuple, TypeVar
 
+from backtrader import Strategy
 import streamlit as st
 
-StrategyClass = TypeVar("StrategyClass", bound=type)
+StrategyClass = TypeVar("StrategyClass", bound=Strategy)
 
 
 @dataclass
@@ -20,7 +21,15 @@ class StrategyPage:
             st.warning("No contents")
 
 
+@dataclass
+class StrategyParam:
+    name: str
+    default: Any
+    type: type
+
+
 strategy_pages: List[StrategyPage] = []
+strategy_parameter_map: Dict[StrategyClass, List[StrategyParam]] = {}
 
 
 def from_strategy(
@@ -42,6 +51,24 @@ def from_strategy(
                 strategy_cls=cls,
             )
         strategy_pages.append(page)
+        return cls
+
+    return decorator
+
+
+def backtestable():
+    def decorator(cls: StrategyClass):
+        params = []
+        for key in cls.params._getkeys():
+            default_val = getattr(cls.params, key)
+            params.append(
+                StrategyParam(
+                    name=key,
+                    default=default_val,
+                    type=type(default_val),
+                )
+            )
+        strategy_parameter_map[cls] = params
         return cls
 
     return decorator
