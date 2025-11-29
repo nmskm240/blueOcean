@@ -147,3 +147,7 @@ dmypy.json
 cython_debug/
 
 data*
+notebooks/*
+blueOcean/strategies.py
+blueOcean/indicators.py
+out/*

@@ -9,5 +9,6 @@
         "editor.codeActionsOnSave": {
             "source.convertImportFormat": "always"
         },
-    }
+    },
+    "dataWrangler.outputRenderer.columnInsights.displayByDefault": true
 }

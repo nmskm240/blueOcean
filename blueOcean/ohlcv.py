@@ -3,7 +3,6 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import IntEnum
-import logging
 from pathlib import Path
 import time
 from typing import Generator
@@ -13,9 +12,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from dataclasses import asdict
 import ccxt
+import backtrader as bt
 
-
-logger = logging.getLogger(__name__)
+from blueOcean.logging import logger
 
 
 @dataclass
@@ -37,7 +36,7 @@ class Ohlcv:
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame) -> list[Ohlcv]:
         return [cls(**row) for row in df.reset_index(drop=True).to_dict("records")]
-    
+
 
 class Timeframe(IntEnum):
     ONE_MINUTE = 1
@@ -49,6 +48,13 @@ class Timeframe(IntEnum):
 
     def to_duck(self) -> str:
         return f"'{int(self)} minutes'"
+
+    def to_backtrade(self) -> bt.TimeFrame:
+        match self:
+            case Timeframe.ONE_DAY:
+                return bt.TimeFrame.Days
+            case _:
+                return bt.TimeFrame.Minutes
 
 
 class IOhlcvRepository(metaclass=ABCMeta):
@@ -67,9 +73,10 @@ class IOhlcvRepository(metaclass=ABCMeta):
         source: str,
         interval: Timeframe = Timeframe.ONE_MINUTE,
         start_date: datetime | None = None,
-        end_date: datetime | None = None
+        end_date: datetime | None = None,
     ) -> list[Ohlcv]:
         raise NotImplementedError()
+
 
 class OhlcvRepository(IOhlcvRepository):
     def __init__(self, base_path: str = "./data"):
@@ -93,16 +100,18 @@ class OhlcvRepository(IOhlcvRepository):
             chunk = chunk.drop(columns=["year_month"])
             chunk["time"] = chunk.index
             chunk = chunk[["time", "open", "high", "low", "close", "volume"]]
-            table = pa.Table.from_pandas(chunk,preserve_index=False)
+            table = pa.Table.from_pandas(chunk, preserve_index=False)
 
             if filename.exists():
                 old = pq.read_table(filename).to_pandas()
-                merged = ( 
-                    pd.concat([old, chunk], ignore_index=True) 
-                    .drop_duplicates(subset=["time"]) 
-                    .sort_values("time") )
+                merged = (
+                    pd.concat([old, chunk], ignore_index=True)
+                    .drop_duplicates(subset=["time"])
+                    .sort_values("time")
+                )
                 table = pa.Table.from_pandas(merged, preserve_index=False)
 
+            logger.info(f"{symbol} {ym} parquet update")
             pq.write_table(table, filename)
 
     def get_latest_timestamp(self, source, symbol):
@@ -119,8 +128,15 @@ class OhlcvRepository(IOhlcvRepository):
             return pd.to_datetime(row[0]).to_pydatetime()
         except:
             return None
-        
-    def find(self, symbol, source, timeframe = Timeframe.ONE_MINUTE, start_date = None, end_date = None):
+
+    def find(
+        self,
+        symbol,
+        source,
+        timeframe=Timeframe.ONE_MINUTE,
+        start_date=None,
+        end_date=None,
+    ):
         symbol_dir = self._parse_from_symbol_to_dir(symbol)
         path = Path(self._base_dir, source, symbol_dir, "*.parquet")
 
@@ -162,7 +178,9 @@ class OhlcvFetcher(metaclass=ABCMeta):
         yield from self._fetch_ohlcv_process(symbol, _since_at)
 
     @abstractmethod
-    def _fetch_ohlcv_process(self, symbol: str, since_at: datetime) -> Generator[list[Ohlcv]]:
+    def _fetch_ohlcv_process(
+        self, symbol: str, since_at: datetime
+    ) -> Generator[list[Ohlcv]]:
         raise NotImplementedError()
 
 
@@ -194,7 +212,7 @@ class CcxtOhlcvFetcher(OhlcvFetcher):
 
             if not df.empty:
                 logger.info(
-                    f'Fetched {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
+                    f'Fetched from {exchange.name} {symbol} {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
                 )
 
             ohlcvs = Ohlcv.from_dataframe(df)
@@ -219,3 +237,64 @@ class CcxtOhlcvFetcher(OhlcvFetcher):
                     raise
                 logger.warning(f"Retry fetch due to error: {e}")
                 time.sleep(1)
+
+
+class LocalDataFeed(bt.feed.DataBase):
+    lines = ("datetime", "open", "high", "low", "close", "volume", "openinterest")
+
+    params = (
+        ("repository", None),
+        ("symbol", None),
+        ("source", None),
+        ("ohlcv_timeframe", Timeframe.ONE_MINUTE),
+        ("start_at", datetime.min),
+        ("end_at", datetime.max),
+        # Feed内部のtimeframe用
+        ("timeframe", bt.TimeFrame.NoTimeFrame),
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self._data_iter = None
+        # NOTE: timeframeとcompressionをAnalyzerなどが利用するため明示が必要 
+        self.p.timeframe = self.p.ohlcv_timeframe.to_backtrade()
+        self.p.compression = 1
+
+    def start(self):
+        super().start()
+
+        ohlcvs = self.p.repository.find(
+            symbol=self.p.symbol,
+            source=self.p.source,
+            timeframe=self.p.ohlcv_timeframe,
+            start_date=self.p.start_at,
+            end_date=self.p.end_at,
+        )
+
+        self._data_iter = iter(
+            [(o.time, o.open, o.high, o.low, o.close, o.volume) for o in ohlcvs]
+        )
+
+    def _load(self):
+        if self._data_iter is None:
+            return False
+
+        try:
+            dt_, o, h, l, c, v = next(self._data_iter)
+        except StopIteration:
+            return False
+
+        if hasattr(dt_, "to_pydatetime"):
+            dt_ = dt_.to_pydatetime()
+        if dt_.tzinfo is not None:
+            dt_ = dt_.replace(tzinfo=None)
+
+        self.lines.datetime[0] = bt.date2num(dt_)
+        self.lines.open[0] = o
+        self.lines.high[0] = h
+        self.lines.low[0] = l
+        self.lines.close[0] = c
+        self.lines.volume[0] = v
+        self.lines.openinterest[0] = 0.0
+
+        return True
