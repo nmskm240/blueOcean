@@ -17,6 +17,9 @@ class StrategyRunner:
     ) -> tuple[TStrategy, bt.Cerebro]:
         cerebro = bt.Cerebro()
         cerebro.adddata(datafeed)
+        cerebro.broker.setcash(10_000)
+        cerebro.broker.setcommission(leverage=3)
+        cerebro.addsizer(bt.sizers.FixedSize, stake=0.1)
         cerebro.addstrategy(strategy, **strategy_args)
 
         for analyzer_cls, name, kwargs in self._analyzers:
