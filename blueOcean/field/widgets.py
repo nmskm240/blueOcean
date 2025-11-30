@@ -2,7 +2,7 @@ import streamlit as st
 import ccxt
 from blueOcean.field import usecase
 from blueOcean.field.decorators import strategy_parameter_map
-from blueOcean.ohlcv import CcxtOhlcvFetcher, OhlcvRepository
+from blueOcean.ohlcv import CcxtOhlcvFetcher, OhlcvRepository, Timeframe
 
 
 def ohlcv_fetch_form():
@@ -25,13 +25,14 @@ def ohlcv_fetch_form():
 def backtest_settings_form():
     source = st.text_input("source")
     symbol = st.text_input("symbol")
+    timeframe = st.selectbox("timeframe", [e.name for e in Timeframe])
     col1, col2 = st.columns(2)
     with col1:
         start_at = st.date_input("start_at")
     with col2:
         end_at = st.date_input("end_at")
 
-    return (source, symbol, start_at, end_at)
+    return (source, symbol, Timeframe[timeframe], start_at, end_at)
 
 
 def strategy_selectbox():
@@ -54,4 +55,3 @@ def strategy_param_settings_form(strategy_class: type):
             value = st.text_input(p.name)
         result[p.name] = value
     return result
-
