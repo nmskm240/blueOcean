@@ -42,6 +42,7 @@ class Timeframe(IntEnum):
     ONE_MINUTE = 1
     FIVE_MINUTE = 5
     FIFTEEN_MINUTE = 15
+    THIRTY_MINUTE = 30
     ONE_HOUR = 60
     FOUR_HOUR = 240
     ONE_DAY = 1440
