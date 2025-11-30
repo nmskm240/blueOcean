@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 from queue import Queue
+import sys
 
 
 log_queue = Queue()
@@ -26,12 +27,13 @@ if not logger.handlers:
     )
     logger.addHandler(console_handler)
 
-    file_handler = logging.FileHandler(f"logs/{datetime.now()}.log")
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-    )
-    logger.addHandler(file_handler)
+    if hasattr(sys.modules["__main__"], "__file__"):
+        file_handler = logging.FileHandler(f"logs/{datetime.now()}.log")
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        )
+        logger.addHandler(file_handler)
 
     streamlit_handler = StreamlitHandler()
     streamlit_handler.setLevel(logging.DEBUG)
