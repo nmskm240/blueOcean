@@ -6,9 +6,10 @@ from blueOcean.ohlcv import OhlcvRepository
 
 with st.form("backtest"):
     st.header("Playground")
-    settings = widgets.backtest_settings_form()
+    source, symbol, timeframe, start_at, end_at = widgets.backtest_settings_form()
     strategy = widgets.strategy_selectbox()
-    params = widgets.strategy_param_settings_form(strategy)
+    with st.expander("params"):
+        params = widgets.strategy_param_settings_form(strategy)
     submitted = st.form_submit_button("Test")
 
 if submitted:
@@ -16,13 +17,14 @@ if submitted:
         repository = OhlcvRepository("data")
         uc = usecase.BacktestUsecase(
             repository,
-            settings[1],
-            settings[0],
-            start_at=settings[2],
-            end_at=settings[3],
+            symbol,
+            source,
+            timeframe,
+            start_at,
+            end_at,
         )
         result = uc.call(strategy, **params)
-    with open(str(result.report_path), 'r') as f:
+    with open(str(result.report_path), "r") as f:
         html = f.read()
 
     components.html(html, height=1200, scrolling=True)
