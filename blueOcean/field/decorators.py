@@ -1,56 +1,65 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Tuple, TypeVar
+from pathlib import Path
+from typing import Callable, TypeVar
+import inspect
 
-from backtrader import Strategy
 import streamlit as st
+from backtrader import Strategy
 
 StrategyClass = TypeVar("StrategyClass", bound=Strategy)
 
 
 @dataclass
 class StrategyPage:
-    title: str | None
-    contents: str | None
-    strategy_cls: type
+    cls: StrategyClass
+    notes: list[tuple[str, str]]
 
     def render(self) -> None:
-        if self.contents:
-            st.markdown(self.contents, unsafe_allow_html=True)
-        else:
-            st.warning("No contents")
+        st.title(self.cls.__name__)
+        overview, notes = st.tabs(["Overview", "Notes"])
+        with overview:
+            source = inspect.getsource(self.cls)
+            st.code(source)
+        with notes:
+            note_titles = [title for title, _ in self.notes]
+            left, right = st.columns([1, 4])
+
+            with left:
+                selected = st.radio("Pages", note_titles)
+
+            with right:
+                for title, content in self.notes:
+                    if title == selected:
+                        st.subheader(title)
+                        if content:
+                            st.markdown(content, unsafe_allow_html=True)
+                        else:
+                            st.warning("No contents")
 
 
 @dataclass
 class StrategyParam:
     name: str
-    default: Any
+    default: any
     type: type
 
 
-strategy_pages: List[StrategyPage] = []
-strategy_parameter_map: Dict[StrategyClass, List[StrategyParam]] = {}
+strategy_pages: list[StrategyPage] = []
+strategy_parameter_map: dict[StrategyClass, list[StrategyParam]] = {}
 
 
-def from_strategy(
-    title: str, note_path: str = None
+def strategy_page(
+    note_paths: list[tuple[str, str]],
 ) -> Callable[[StrategyClass], StrategyClass]:
     def decorator(cls: StrategyClass) -> StrategyClass:
-        try:
-            with open(note_path) as f:
-                contents = f.read()
-                page = StrategyPage(
-                    title=title,
-                    contents=contents,
-                    strategy_cls=cls,
-                )
-        except:
-            page = StrategyPage(
-                title=title,
-                contents=None,
-                strategy_cls=cls,
-            )
-        strategy_pages.append(page)
+        notes = []
+        for title, path in note_paths:
+            p = Path(path)
+            content = p.read_text(encoding="utf-8") if p.exists() else None
+            notes.append((title, content))
+
+        strategy_pages.append(StrategyPage(cls=cls, notes=notes))
         return cls
 
     return decorator
