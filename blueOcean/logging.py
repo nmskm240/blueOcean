@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from queue import Queue
 
@@ -18,13 +19,23 @@ logger = logging.getLogger("blueOcean")
 logger.setLevel(logging.INFO)
 
 if not logger.handlers:
-    console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
-    console.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    )
+    logger.addHandler(console_handler)
 
-    streamlit = StreamlitHandler()
-    streamlit.setLevel(logging.DEBUG)
-    streamlit.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    file_handler = logging.FileHandler(f"logs/{datetime.now()}.log")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    )
+    logger.addHandler(file_handler)
 
-    logger.addHandler(console)
-    logger.addHandler(streamlit)
+    streamlit_handler = StreamlitHandler()
+    streamlit_handler.setLevel(logging.DEBUG)
+    streamlit_handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    )
+    logger.addHandler(streamlit_handler)
