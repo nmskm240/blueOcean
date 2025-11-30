@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "output notebooke to embed image markdown",
+            "type": "shell",
+            "command": "jupyter",
+            "args": [
+                "nbconvert",
+                "--to", "markdown",
+                "--execute", "--Exporter.preprocessors='[\"blueOcean.jupyter.preprocessor.MarkdownInlineFigurePreprocessor\"]'",
+                "--output-dir", "notebooks/out",
+                "${file}"
+            ]
+        }
+    ]
+}

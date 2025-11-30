@@ -24,3 +24,6 @@ quantstats
 logging
 python-dotenv
 tenacity
+nbconvert
+nbformat
+pytest

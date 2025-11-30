@@ -9,6 +9,8 @@ dependencies = [
     "logging",
     "python-dotenv",
     "influxdb-client",
+    "nbconvert",
+    "nbformat",
 ]
 [tool.setuptools.packages.find]
 exclude = [
