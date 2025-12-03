@@ -6,6 +6,9 @@
 	"forwardPorts": [
 		8501, // streamlit
 	],
+	"features": {
+		"ghcr.io/warrenbuckley/codespace-features/sqlite": "1"
+	},
 	"service": "app",
 	"workspaceFolder": "/workspace",
 	"customizations": {

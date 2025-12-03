@@ -27,3 +27,6 @@ tenacity
 nbconvert
 nbformat
 pytest
+peewee
+cuid2
+injector
