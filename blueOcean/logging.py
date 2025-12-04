@@ -1,8 +1,7 @@
-from datetime import datetime
 import logging
-from queue import Queue
 import sys
-
+from datetime import datetime
+from queue import Queue
 
 log_queue = Queue()
 

@@ -1,5 +1,6 @@
-import streamlit as st
 import ccxt
+import streamlit as st
+
 from blueOcean.field import usecase
 from blueOcean.field.decorators import strategy_parameter_map
 from blueOcean.ohlcv import CcxtOhlcvFetcher, OhlcvRepository, Timeframe

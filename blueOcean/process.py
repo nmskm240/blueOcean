@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 from datetime import datetime
 from enum import IntEnum
 from multiprocessing import Process
+
+import psutil
 from injector import inject
 from peewee import Database
-import psutil
 
 from blueOcean.database import ProcessEntity
 

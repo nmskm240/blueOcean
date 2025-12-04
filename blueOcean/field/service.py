@@ -1,4 +1,5 @@
 from typing import Type, TypeVar
+
 import backtrader as bt
 
 TStrategy = TypeVar("TStrategy", bound=bt.Strategy)

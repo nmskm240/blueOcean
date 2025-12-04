@@ -1,14 +1,9 @@
 from datetime import datetime
+
+from cuid2 import DEFAULT_LENGTH, Cuid
 from injector import Module, provider, singleton
-from peewee import (
-    SqliteDatabase,
-    Model,
-    SmallIntegerField,
-    IntegerField,
-    CharField,
-    DateTimeField,
-)
-from cuid2 import Cuid, DEFAULT_LENGTH
+from peewee import (CharField, DateTimeField, IntegerField, Model,
+                    SmallIntegerField, SqliteDatabase)
 
 db = SqliteDatabase("data/blueOcean.sqlite3")
 
