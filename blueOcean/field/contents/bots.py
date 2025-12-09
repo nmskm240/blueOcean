@@ -1,20 +1,17 @@
-from time import sleep
 import streamlit as st
 
-from blueOcean.logging import logger
-from blueOcean.process import _ProcessRepository, ProcessManager
+from blueOcean.application.services import WorkerService
+from blueOcean.field import widgets
 
-def hoge(i: int):
-    while True:
-        logger.info(i)
-        i += 1
-        sleep(1)
+st.title("Bot real running test")
 
+source = st.text_input("source")
+symbol = st.text_input("symbol")
+strategy_cls = widgets.strategy_selectbox()
+strategy_args = widgets.strategy_param_settings_form(strategy_cls)
 
-pm = ProcessManager(_ProcessRepository())
-
-if st.button("Start"):
-    pid = pm.spawn(hoge, 0)
-    st.write(pid)
-    sleep(10)
-    pm.terminate(pid)
+if st.button("Run"):
+    with st.spinner("Testing..."):
+        service = WorkerService()
+        p = service.spawn_bot("hoge", source, symbol, strategy_cls, strategy_args)
+        st.success(f"(PID={p.pid})")
