@@ -1,18 +1,20 @@
 from __future__ import annotations
+
+import time
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import IntEnum
 from pathlib import Path
-import time
+from queue import Empty
 from typing import Generator
+
+import backtrader as bt
+import ccxt
 import duckdb
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from dataclasses import asdict
-import ccxt
-import backtrader as bt
 
 from blueOcean.logging import logger
 
@@ -166,8 +168,10 @@ class OhlcvRepository(IOhlcvRepository):
 
 
 class OhlcvFetcher(metaclass=ABCMeta):
-    def __init__(self, source: str):
-        self._source = source
+    @property
+    @abstractmethod
+    def source(self) -> str:
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -188,20 +192,25 @@ class OhlcvFetcher(metaclass=ABCMeta):
 class CcxtOhlcvFetcher(OhlcvFetcher):
     TIMEFRAME = "1m"
 
+    def __init__(self, exchange: ccxt.Exchange):
+        super().__init__()
+        self.exchange = exchange
+        self.exchange.load_markets()
+
+    @property
+    def source(self) -> str:
+        return self.exchange.name
+
     @property
     def longest_since(self):
         return datetime(2017, 1, 1, tzinfo=UTC)
 
     def _fetch_ohlcv_process(self, symbol: str, since_at: datetime):
-        meta: type[ccxt.Exchange] = getattr(ccxt, self._source)
-        exchange = meta()
-        exchange.load_markets()
-
-        timeframe_ms = exchange.parse_timeframe(self.TIMEFRAME) * 1000
+        timeframe_ms = self.exchange.parse_timeframe(self.TIMEFRAME) * 1000
         since = int(since_at.timestamp() * 1000) + timeframe_ms
 
-        while since < exchange.milliseconds():
-            fetched = self._try_fetch(exchange, symbol, since)
+        while since < self.exchange.milliseconds():
+            fetched = self._try_fetch(symbol, since)
             if not fetched:
                 break
 
@@ -213,7 +222,7 @@ class CcxtOhlcvFetcher(OhlcvFetcher):
 
             if not df.empty:
                 logger.info(
-                    f'Fetched from {exchange.name} {symbol} {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
+                    f'Fetched from {self.exchange.name} {symbol} {df["time"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")}~{df["time"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}'
                 )
 
             ohlcvs = Ohlcv.from_dataframe(df)
@@ -224,13 +233,13 @@ class CcxtOhlcvFetcher(OhlcvFetcher):
             last_time = ohlcvs[-1].time
             since = int(last_time.timestamp() * 1000) + timeframe_ms
 
-            time.sleep(exchange.rateLimit / 1000)
+            time.sleep(self.exchange.rateLimit / 1000)
 
-    def _try_fetch(self, exchange: ccxt.Exchange, symbol: str, since: int):
+    def _try_fetch(self, symbol: str, since: int):
         """3回リトライ"""
         for attempt in range(3):
             try:
-                return exchange.fetch_ohlcv(
+                return self.exchange.fetch_ohlcv(
                     symbol, self.TIMEFRAME, since=since, limit=1000
                 )
             except Exception as e:
@@ -254,10 +263,10 @@ class LocalDataFeed(bt.feed.DataBase):
         ("timeframe", bt.TimeFrame.NoTimeFrame),
     )
 
-    def __init__(self, **kwargs):
+    def __init__(self):
         super().__init__()
         self._data_iter = None
-        # NOTE: timeframeとcompressionをAnalyzerなどが利用するため明示が必要 
+        # NOTE: timeframeとcompressionをAnalyzerなどが利用するため明示が必要
         self.p.timeframe = self.p.ohlcv_timeframe.to_backtrade()
         self.p.compression = 1
 
@@ -296,6 +305,42 @@ class LocalDataFeed(bt.feed.DataBase):
         self.lines.low[0] = l
         self.lines.close[0] = c
         self.lines.volume[0] = v
+        self.lines.openinterest[0] = 0.0
+
+        return True
+
+
+class QueueDataFeed(bt.feed.DataBase):
+    lines = (
+        "datetime",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "openinterest",
+    )
+
+    params = (
+        ("queue", None),
+        ("symbol", None),
+    )
+
+    def islive(self):
+        return True
+
+    def _load(self):
+        try:
+            tick = self.p.queue.get(timeout=1)
+        except Empty:
+            return None
+
+        self.lines.datetime[0] = bt.date2num(tick.time)
+        self.lines.close[0] = tick.close
+        self.lines.open[0] = tick.open
+        self.lines.high[0] = tick.high
+        self.lines.low[0] = tick.low
+        self.lines.volume[0] = tick.volume
         self.lines.openinterest[0] = 0.0
 
         return True

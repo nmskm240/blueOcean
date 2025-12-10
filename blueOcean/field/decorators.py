@@ -1,8 +1,9 @@
 from __future__ import annotations
+
+import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, TypeVar
-import inspect
 
 import streamlit as st
 from backtrader import Strategy

@@ -9,6 +9,7 @@ nav = st.navigation(
         "": [
             st.Page("./contents/top.py", title="Top", default=True),
             st.Page("./contents/playground.py", title="Playground"),
+            st.Page("./contents/bots.py", title="Bots"),
         ],
         "Strategies": [
             st.Page(p.render, title=p.cls.__name__, url_path=p.cls.__name__)

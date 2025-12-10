@@ -1,15 +1,18 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Type
+
 import backtrader as bt
 import pandas as pd
 import quantstats as qs
 
 from blueOcean.field import service
-from blueOcean.ohlcv import IOhlcvRepository, LocalDataFeed, OhlcvFetcher, Timeframe
 from blueOcean.logging import logger
+from blueOcean.ohlcv import (IOhlcvRepository, LocalDataFeed, OhlcvFetcher,
+                             Timeframe)
 
 
 class FetchOhlcvUsecase:
