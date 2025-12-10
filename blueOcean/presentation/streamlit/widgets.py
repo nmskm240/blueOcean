@@ -1,9 +1,11 @@
 import ccxt
 import streamlit as st
 
-from blueOcean.field import usecase
-from blueOcean.field.decorators import strategy_parameter_map
-from blueOcean.ohlcv import CcxtOhlcvFetcher, OhlcvRepository, Timeframe
+from blueOcean.application import usecase
+from blueOcean.application.decorators import strategy_registry
+from blueOcean.domain.ohlcv import Timeframe
+from blueOcean.infra.database.repositories import OhlcvRepository
+from blueOcean.infra.fetchers import CcxtOhlcvFetcher
 
 
 def ohlcv_fetch_form():
@@ -37,7 +39,9 @@ def backtest_settings_form():
 
 
 def strategy_selectbox():
-    strategy_map = {cls.__name__: cls for cls in strategy_parameter_map.keys()}
+    strategy_map = {
+        page_data.cls.__name__: page_data.cls for page_data in strategy_registry
+    }
 
     selected = st.selectbox("Strategy", list(strategy_map.keys()))
 
@@ -45,14 +49,17 @@ def strategy_selectbox():
 
 
 def strategy_param_settings_form(strategy_class: type):
-    parameters = strategy_parameter_map[strategy_class]
+    strategy_map = {page_data.cls: page_data for page_data in strategy_registry}
+    parameters = strategy_map[strategy_class].params
     result = {}
     for p in parameters:
-        if p.type is int:
-            value = st.number_input(p.name, step=1, value=p.default)
-        elif p.type is float:
-            value = st.number_input(p.name, value=p.default)
+        name = p[0]
+        default_value = p[1]
+        if type(default_value) is int:
+            value = st.number_input(name, step=1, value=default_value)
+        elif type(default_value) is float:
+            value = st.number_input(name, value=default_value)
         else:
-            value = st.text_input(p.name)
-        result[p.name] = value
+            value = st.text_input(name, value=default_value)
+        result[name] = value
     return result

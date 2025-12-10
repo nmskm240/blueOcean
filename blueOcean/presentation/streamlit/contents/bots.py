@@ -1,7 +1,7 @@
 import streamlit as st
 
 from blueOcean.application.services import WorkerService
-from blueOcean.field import widgets
+from blueOcean.presentation.streamlit import widgets
 
 st.title("Bot real running test")
 
