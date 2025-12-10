@@ -8,7 +8,7 @@ import psutil
 from injector import inject
 from peewee import Database
 
-from blueOcean.database import ProcessEntity
+from blueOcean.infra.database import ProcessEntity
 
 
 class ProcessStatus(IntEnum):
