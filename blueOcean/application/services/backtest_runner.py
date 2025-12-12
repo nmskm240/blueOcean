@@ -1,8 +1,6 @@
-from typing import Type, TypeVar
+from typing import Type
 
 import backtrader as bt
-
-TStrategy = TypeVar("TStrategy", bound=bt.Strategy)
 
 
 class StrategyRunner:
@@ -14,8 +12,8 @@ class StrategyRunner:
         return self
 
     def run(
-        self, strategy: Type[TStrategy], datafeed: bt.feed.DataBase, **strategy_args
-    ) -> tuple[TStrategy, bt.Cerebro]:
+        self, strategy: Type[bt.Strategy], datafeed: bt.feed.DataBase, **strategy_args
+    ) -> tuple[bt.Strategy, bt.Cerebro]:
         cerebro = bt.Cerebro()
         cerebro.adddata(datafeed)
         cerebro.broker.setcash(10_000)

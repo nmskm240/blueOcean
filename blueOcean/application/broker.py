@@ -5,7 +5,7 @@ from backtrader.order import BuyOrder, Order, SellOrder
 from backtrader.position import Position
 
 from blueOcean.application.store import IStore
-from blueOcean.logging import logger
+from blueOcean.infra.logging import logger
 
 
 class Broker(BrokerBase):

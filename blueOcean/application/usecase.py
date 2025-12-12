@@ -9,10 +9,9 @@ import backtrader as bt
 import pandas as pd
 import quantstats as qs
 
-from blueOcean.field import service
-from blueOcean.logging import logger
-from blueOcean.ohlcv import (IOhlcvRepository, LocalDataFeed, OhlcvFetcher,
-                             Timeframe)
+from blueOcean.application.feed import LocalDataFeed
+from blueOcean.application.services import StrategyRunner
+from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher, Timeframe
 
 
 class FetchOhlcvUsecase:
@@ -52,10 +51,10 @@ class BacktestUsecase:
 
     def call(
         self,
-        strategy: Type[service.TStrategy],
+        strategy: Type[bt.Strategy],
         **strategy_args,
     ):
-        runner = service.StrategyRunner()
+        runner = StrategyRunner()
         runner.add_analyzer(bt.analyzers.TimeReturn, "timereturn")
         result, cerebro = runner.run(strategy, self.feed, **strategy_args)
 

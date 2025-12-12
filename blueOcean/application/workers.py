@@ -9,9 +9,9 @@ import backtrader as bt
 import ccxt
 
 from blueOcean.application.broker import Broker
-from blueOcean.field.service import TStrategy
+from blueOcean.application.feed import QueueDataFeed
+from blueOcean.infra.fetchers import CcxtOhlcvFetcher
 from blueOcean.infra.stores import CcxtSpotStore
-from blueOcean.ohlcv import CcxtOhlcvFetcher, QueueDataFeed
 
 
 class BotWorker(Process):
@@ -21,7 +21,7 @@ class BotWorker(Process):
         secret: str,
         source: str,
         symbol: str,
-        strategy_cls: Type[TStrategy],
+        strategy_cls: Type[bt.Strategy],
         **strategy_args,
     ):
         super().__init__(name=f"{strategy_cls.__name__}({strategy_args.values})")

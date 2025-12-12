@@ -1,8 +1,9 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-from blueOcean.field import usecase, widgets
-from blueOcean.ohlcv import OhlcvRepository
+from blueOcean.application import usecase
+from blueOcean.infra.database.repositories import OhlcvRepository
+from blueOcean.presentation.streamlit import widgets
 
 with st.form("backtest"):
     st.header("Playground")
