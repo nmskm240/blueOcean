@@ -1,0 +1,72 @@
+@startuml
+title 本番稼働(リアルトレード) シーケンス図
+
+actor Operator as OP
+participant "Streamlit UI\n/ 管理ツール" as UI
+participant "WorkerService" as WS
+participant "RealTradeWorker" as RTW
+participant "CcxtBroker\n/CcxtSpotStore" as BRK
+participant "取引所API\n(ccxt)" as EX
+participant "Backtrader Cerebro" as Cerebro
+participant "Strategy" as STR
+participant "DB/ログストア" as STORE
+
+OP -> UI: リアルトレード開始要求\n(戦略, シンボル, 資金 等)
+UI -> WS: リアルトレードジョブ作成\n+ パラメータ送信
+WS -> RTW: RealTradeWorker 起動
+activate RTW
+
+RTW -> BRK: APIキー/接続情報で初期化
+RTW -> Cerebro: インスタンス初期化
+activate Cerebro
+
+RTW -> Cerebro: リアルタイム/ポーリング用\nデータフィード設定
+RTW -> Cerebro: Strategy登録
+RTW -> Cerebro: Broker設定\n(レバレッジ, 注文種別 等)
+
+loop 稼働ループ(市場オープン中)
+  RTW -> EX: 最新市場データ取得\n(ティック/足)
+  EX --> RTW: 市場データ
+  RTW -> Cerebro: フィードにデータを流し込み
+
+  Cerebro -> STR: next() / 戦略ロジック実行
+  STR --> Cerebro: シグナル / 注文指示
+
+  alt 売買シグナルあり
+    Cerebro -> BRK: 注文発行\n(数量, 方向, 価格 等)
+    BRK -> EX: 注文API呼び出し
+    EX --> BRK: 約定/ステータス
+    BRK --> Cerebro: 約定結果を反映
+    Cerebro -> STORE: 取引履歴・ポジション\n残高を保存
+  else シグナルなし
+    Cerebro -> STORE: 状態のみ更新\n(評価損益 等)
+  end
+
+  Cerebro -> Cerebro: リスク管理ロジック\n(ロスカット/利確条件)
+  Cerebro -> STORE: ログ・指標を更新
+
+  RTW -> UI: 進捗・サマリ情報を送信\n(任意間隔)
+  UI -> OP: ダッシュボード表示更新
+
+  alt 停止条件(時間, DD, 手動)成立
+    break
+  end
+end
+
+RTW -> Cerebro: 戦略停止\n(ポジション確認)
+RTW -> BRK: 残ポジションがあればクローズ注文
+BRK -> EX: クローズ注文API
+EX --> BRK: 約定結果
+BRK --> RTW: 最終残高・ポジション
+
+RTW -> STORE: 最終サマリ保存
+RTW -> WS: 稼働完了通知 + 結果
+deactivate RTW
+
+WS -> UI: 最終結果を返却
+UI -> OP: 稼働サマリ表示
+
+deactivate Cerebro
+
+@enduml
+

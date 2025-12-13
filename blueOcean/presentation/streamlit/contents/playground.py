@@ -1,8 +1,7 @@
 import streamlit as st
-import streamlit.components.v1 as components
 
-from blueOcean.application import usecase
-from blueOcean.infra.database.repositories import OhlcvRepository
+from blueOcean.application import usecases
+from blueOcean.application.dto import BacktestConfig, DatetimeRange
 from blueOcean.presentation.streamlit import widgets
 
 with st.form("backtest"):
@@ -15,17 +14,15 @@ with st.form("backtest"):
 
 if submitted:
     with st.spinner("Testing..."):
-        repository = OhlcvRepository("data")
-        uc = usecase.BacktestUsecase(
-            repository,
-            symbol,
-            source,
-            timeframe,
-            start_at,
-            end_at,
+        config = BacktestConfig(
+            symbol=symbol,
+            source=source,
+            compression=timeframe.value,
+            strategy_cls=strategy,
+            strategy_args=params,
+            cash=10_000,
+            time_range=DatetimeRange(start_at=start_at, end_at=end_at),
         )
-        result = uc.call(strategy, **params)
-    with open(str(result.report_path), "r") as f:
-        html = f.read()
-
-    components.html(html, height=1200, scrolling=True)
+        worker = usecases.run_bot(config)
+        worker.join()
+    st.toast("Backtest completed", icon="🎉")

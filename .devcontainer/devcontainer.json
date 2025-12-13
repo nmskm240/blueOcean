@@ -19,7 +19,9 @@
 				"ms-toolsai.jupyter",
 				"ms-python.isort",
 				"ms-python.black-formatter",
-				"ms-toolsai.datawrangler"
+				"ms-toolsai.datawrangler",
+				"Mebrahtom.plantumlpreviewer",
+				"jebbs.plantuml"
 			]
 		}
 	},

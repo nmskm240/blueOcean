@@ -1,0 +1,53 @@
+@startuml
+title バックテスト処理 シーケンス図
+
+actor User as U
+participant "Streamlit UI\n/ 管理ツール" as UI
+participant "WorkerService\n(UseCases起動)" as WS
+participant "BacktestWorker" as BW
+participant "DB Repositories\n(OHLCV取得)" as REPO
+participant "Backtrader Cerebro" as Cerebro
+participant "Strategy" as STR
+participant "Analyzers" as ANZ
+participant "出力ストア\n(CSV/HTML/DB)" as OUT
+
+U -> UI: バックテスト要求\n(戦略・期間・資金 等)
+UI -> WS: バックテストジョブ作成\n+ パラメータ送信
+WS -> BW: バックテストジョブを起動
+activate BW
+
+BW -> REPO: OHLCVデータ取得\n(シンボル, 期間)
+REPO --> BW: 時系列OHLCV
+
+BW -> Cerebro: インスタンス初期化
+activate Cerebro
+
+BW -> Cerebro: データフィード登録\n(BacktraderFeeds)
+BW -> Cerebro: Strategy登録
+BW -> Cerebro: ブローカー設定\n(手数料・スリッページ 等)
+BW -> Cerebro: Analyzers登録
+
+BW -> Cerebro: run() 実行
+
+loop バックテスト走査(バー毎)
+  Cerebro -> STR: next() / ロジック評価
+  STR --> Cerebro: シグナル / 注文指示
+  Cerebro -> Cerebro: 仮想注文・約定処理
+  Cerebro -> ANZ: 指標更新\n(損益, DD 等)
+end
+
+Cerebro --> BW: 実行結果\n(ポートフォリオ, 指標)
+
+BW -> OUT: 結果を書き出し\n(analyze.csv, tear_sheet.html 等)
+OUT --> BW: 出力完了
+
+BW -> WS: バックテスト完了通知\n+ 結果パス
+deactivate BW
+
+WS -> UI: 結果パス・サマリを返却
+UI -> U: 結果画面表示\n(グラフ, 指標一覧)
+
+deactivate Cerebro
+
+@enduml
+

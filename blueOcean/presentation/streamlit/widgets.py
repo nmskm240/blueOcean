@@ -1,11 +1,8 @@
 import ccxt
 import streamlit as st
 
-from blueOcean.application import usecase
 from blueOcean.application.decorators import strategy_registry
 from blueOcean.domain.ohlcv import Timeframe
-from blueOcean.infra.database.repositories import OhlcvRepository
-from blueOcean.infra.fetchers import CcxtOhlcvFetcher
 
 
 def ohlcv_fetch_form():
@@ -15,14 +12,7 @@ def ohlcv_fetch_form():
         symbol = st.text_input("symbol")
         submitted = st.form_submit_button("Fetch")
 
-    if not submitted:
-        return
-
-    with st.spinner("Fetching..."):
-        repository = OhlcvRepository("data")
-        fetcher = CcxtOhlcvFetcher(source)
-        uc = usecase.FetchOhlcvUsecase(repository, fetcher)
-        uc.call(source, symbol)
+    return submitted, source, symbol
 
 
 def backtest_settings_form():

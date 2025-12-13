@@ -2,6 +2,7 @@ import time
 from datetime import UTC, datetime
 
 import ccxt
+from injector import inject
 import pandas as pd
 
 from blueOcean.domain.ohlcv import Ohlcv, OhlcvFetcher
@@ -11,6 +12,7 @@ from blueOcean.infra.logging import logger
 class CcxtOhlcvFetcher(OhlcvFetcher):
     TIMEFRAME = "1m"
 
+    @inject
     def __init__(self, exchange: ccxt.Exchange):
         super().__init__()
         self.exchange = exchange
