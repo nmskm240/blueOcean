@@ -1,0 +1,37 @@
+@startuml
+title バックテスト処理 アクティビティ図
+
+start
+
+:バックテストジョブ要求を受付\n(パラメータ: 戦略, 期間, 資金, 手数料 等);
+
+:バックテスト用OHLCVを読み込み\n(parquet / sqlite / duckdb);
+:戦略クラス・設定を\nロード;
+
+:backtrader Cerebro を初期化;
+:データフィードを登録\n(BacktraderFeeds);
+:戦略(Strategy)を追加;
+:ブローカー・手数料・スリッページ等を設定\n(CcxtBroker 互換設定);
+:アナライザ(Analyzers)を登録;
+
+if (設定バリデーションOK？) then (OK)
+  :バックテストを実行\n(cerebro.run);
+  if (実行中に例外発生？) then (はい)
+    :例外内容をログ出力;
+    stop
+  else (いいえ)
+    :バックテスト結果を集計\n(損益, DD, 勝率 等);
+    :結果をCSV / HTML / DB 等に出力\n(out/<id>/analyze.csv 等);
+    :ログ・メタ情報を保存;
+  endif
+else (NG)
+  :設定エラー内容をログ出力;
+  stop
+endif
+
+:バックテスト完了を通知\n(管理UI / Streamlit);
+
+stop
+
+@enduml
+
