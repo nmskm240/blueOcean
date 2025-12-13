@@ -1,10 +1,12 @@
 import ccxt
 from backtrader import Position, Order
+from injector import inject
 
 from blueOcean.application.store import IStore
 
 
 class CcxtSpotStore(IStore):
+    @inject
     def __init__(self, exchange: ccxt.Exchange, symbol: str, quote="USDT"):
         super().__init__(symbol)
         self.exchange = exchange

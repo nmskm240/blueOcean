@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from queue import Empty
+from queue import Empty, Queue
 
 import backtrader as bt
+from injector import inject
 
 from blueOcean.domain.ohlcv import Timeframe
 
@@ -68,6 +69,7 @@ class LocalDataFeed(bt.feed.DataBase):
         return True
 
 
+# TODO: Feed内でFetcherを動かすほうが考えること少なくなってよさそう
 class QueueDataFeed(bt.feed.DataBase):
     lines = (
         "datetime",
@@ -79,17 +81,17 @@ class QueueDataFeed(bt.feed.DataBase):
         "openinterest",
     )
 
-    params = (
-        ("queue", None),
-        ("symbol", None),
-    )
+    @inject
+    def __init__(self):
+        super().__init__()
+        self.queue = Queue()
 
     def islive(self):
         return True
 
     def _load(self):
         try:
-            tick = self.p.queue.get(timeout=1)
+            tick = self.queue.get(timeout=1)
         except Empty:
             return None
 
