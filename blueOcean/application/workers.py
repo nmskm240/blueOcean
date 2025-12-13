@@ -3,52 +3,40 @@ import time
 from datetime import UTC, datetime, timedelta
 from multiprocessing import Process
 from queue import Queue
-from typing import Type
 
 import backtrader as bt
-import ccxt
+from injector import Injector
 
-from blueOcean.application.broker import Broker
-from blueOcean.application.feed import QueueDataFeed
-from blueOcean.infra.fetchers import CcxtOhlcvFetcher
-from blueOcean.infra.stores import CcxtSpotStore
+from blueOcean.application.di import BacktestModule, RealTradeModule
+from blueOcean.application.dto import BacktestConfig, BotConfig
+from blueOcean.domain.ohlcv import OhlcvFetcher
 
 
-class BotWorker(Process):
-    def __init__(
-        self,
-        key: str,
-        secret: str,
-        source: str,
-        symbol: str,
-        strategy_cls: Type[bt.Strategy],
-        **strategy_args,
-    ):
-        super().__init__(name=f"{strategy_cls.__name__}({strategy_args.values})")
-        self.key = key
-        self.secret = secret
-        self.source = source
-        self.symbol = symbol
-        self.strategy_cls = strategy_cls
-        self.strategy_args = strategy_args
+class RealTradeWorker(Process):
+    def __init__(self, config: BotConfig):
+        super().__init__()
+        self.config = config
 
         self.threads = []
-        self.ohlcv_queue = Queue()
         self.should_terminate = False
 
     def run(self):
-        self.exchange = self._setup_exchange()
+        container = Injector([RealTradeModule(self.config)])
+
+        fetcher = container.get(OhlcvFetcher)
+        queue = container.get(Queue)
         self.threads = [
-            threading.Thread(name="fetcher", target=self._fetch_ohlcv, daemon=True),
+            threading.Thread(
+                name="fetcher",
+                target=self._fetch_ohlcv,
+                args=[fetcher, self.config.symbol, queue],
+                daemon=True,
+            ),
         ]
         for t in self.threads:
             t.start()
 
-        cerebro = bt.Cerebro()
-        cerebro.addstrategy(self.strategy_cls, **self.strategy_args)
-        cerebro.adddata(QueueDataFeed(queue=self.ohlcv_queue, symbol=self.symbol))
-        cerebro.broker = Broker(CcxtSpotStore(self.exchange, self.symbol))
-
+        cerebro = container.get(bt.Cerebro)
         cerebro.run()
 
     def terminate(self):
@@ -58,21 +46,7 @@ class BotWorker(Process):
 
         return super().terminate()
 
-    def _setup_exchange(self) -> ccxt.Exchange:
-        # TODO: ccxt以外を使う場合はExchangeの抽象化とFactory化が必要
-        meta: type[ccxt.Exchange] = getattr(ccxt, self.source)
-        exchange = meta(
-            {
-                "apiKey": self.key,
-                "secret": self.secret,
-            }
-        )
-        exchange.set_sandbox_mode(True)
-        exchange.load_markets()
-        return exchange
-
-    def _fetch_ohlcv(self):
-        self.fetcher = CcxtOhlcvFetcher(self.exchange)
+    def _fetch_ohlcv(self, fetcher: OhlcvFetcher, symbol: str, queue: Queue):
         while not self.should_terminate:
             now = datetime.now(tz=UTC)
             next_min = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
@@ -81,9 +55,21 @@ class BotWorker(Process):
             sleep_time = (next_min - now).total_seconds()
             time.sleep(sleep_time)
 
-            for batch in self.fetcher.fetch_ohlcv(self.symbol, since_at=since_at):
+            for batch in fetcher.fetch_ohlcv(symbol, since_at=since_at):
                 for ohlcv in batch:
                     if now < ohlcv.time:
                         continue
-                    self.ohlcv_queue.put_nowait(ohlcv)
+                    queue.put_nowait(ohlcv)
                     break
+
+class BacktestWorker(Process):
+    def __init__(self, config:BacktestConfig):
+        super().__init__()
+
+        self.config = config
+
+    def run(self):
+        container = Injector([BacktestModule(self.config)])
+
+        cerebro = container.get(bt.Cerebro)
+        cerebro.run()
