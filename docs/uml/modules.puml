@@ -1,0 +1,147 @@
+@startuml
+title blueOcean モジュール構成図
+
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+package "blueOcean" {
+
+  package "domain" {
+    [account]
+    [ohlcv]
+  }
+
+  package "core" {
+    package "strategies" {
+      [Strategy]
+    }
+  }
+
+  package "infra" {
+    package "database" {
+      package "entities" {
+        [DB Entities]
+      }
+      package "repositories" {
+        [DB Repositories]
+      }
+    }
+
+    package "fetchers" {
+      [MarketDataFetchers]
+    }
+
+    package "logging" {
+      [Logging]
+    }
+
+    package "stores" {
+      [Stores]
+    }
+  }
+
+  package "application" {
+    package "decorators" {
+      [strategy_page]
+      [registry]
+    }
+
+    package "services" {
+      [WorkerService]
+    }
+
+    package "analyzers" {
+      [Analyzers]
+    }
+
+    package "broker" {
+      [CcxtBroker]
+      [CcxtSpotStore]
+    }
+
+    package "di" {
+      [DI Container]
+    }
+
+    package "dto" {
+      [DTOs]
+    }
+
+    package "feed" {
+      [BacktraderFeeds]
+    }
+
+    package "store" {
+      [ApplicationStores]
+    }
+
+    package "usecases" {
+      [UseCases]
+    }
+
+    package "workers" {
+      [BacktestWorker]
+      [RealTradeWorker]
+    }
+  }
+
+  package "presentation" {
+    package "jupyter" {
+      package "preprocessor" {
+        [MarkdownInlineFigurePreprocessor]
+      }
+    }
+
+    package "streamlit" {
+      package "contents" {
+        [StreamlitPages]
+      }
+      package "widgets" {
+        [StreamlitWidgets]
+      }
+    }
+  }
+}
+
+' 依存関係（レイヤ間の方向） -------------------------------------------
+
+[Strategy] --> [account]
+[Strategy] --> [ohlcv]
+
+[DB Repositories] --> [DB Entities]
+[DB Repositories] --> [account]
+[DB Repositories] --> [ohlcv]
+
+[MarketDataFetchers] --> [Stores]
+[Stores] --> [DB Repositories]
+
+[BacktraderFeeds] --> [Stores]
+[BacktraderFeeds] --> [Strategy]
+
+[CcxtBroker] --> [CcxtSpotStore]
+[CcxtBroker] --> [BacktraderFeeds]
+
+[UseCases] --> [Strategy]
+[UseCases] --> [DB Repositories]
+[UseCases] --> [BacktraderFeeds]
+[UseCases] --> [CcxtBroker]
+[UseCases] --> [Analyzers]
+
+[WorkerService] --> [BacktestWorker]
+[WorkerService] --> [RealTradeWorker]
+
+[BacktestWorker] --> [UseCases]
+[RealTradeWorker] --> [UseCases]
+
+[strategy_page] --> [StreamlitPages]
+[strategy_page] --> [MarkdownInlineFigurePreprocessor]
+
+[MarkdownInlineFigurePreprocessor] --> [StreamlitPages]
+
+[StreamlitPages] --> [UseCases]
+[StreamlitWidgets] --> [UseCases]
+
+[Logging] --> [UseCases]
+[Logging] --> [Workers]
+
+@enduml
