@@ -1,17 +1,23 @@
+from datetime import datetime
 from pathlib import Path
 
 import duckdb
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from injector import inject
+from peewee import SqliteDatabase
 
+from blueOcean.domain.account import ApiCredential
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
+from blueOcean.infra.database.entities import AccountEntity, BotEntity
 from blueOcean.infra.logging import logger
 
 
 class OhlcvRepository(IOhlcvRepository):
+    @inject
     def __init__(self, base_path: str = "./data"):
-        self._base_dir = base_path
+        self._base_dir = base_path or "./data"
         self.__con = duckdb.connect()
 
     def _parse_from_symbol_to_dir(self, symbol: str) -> str:
@@ -93,3 +99,54 @@ class OhlcvRepository(IOhlcvRepository):
             """
         df = self.__con.execute(sql).df()
         return Ohlcv.from_dataframe(df)
+
+
+class AccountRepository:
+    @inject
+    def __init__(self, connection: SqliteDatabase):
+        self.con = connection
+
+    def get_credential(self, account_id: str) -> ApiCredential:
+        account = AccountEntity.get(AccountEntity.id == account_id)
+        return ApiCredential(
+            exchange=account.exchange_name,
+            key=account.api_key,
+            secret=account.api_secret,
+            is_sandbox=account.is_sandbox,
+        )
+
+
+class BotRepository:
+    STATUS_STOPPED = 0
+    STATUS_RUNNING = 1
+
+    @inject
+    def __init__(self, connection: SqliteDatabase):
+        self.con = connection
+
+    def save(self, bot_id: str, pid: int, status: int) -> None:
+        now = datetime.now()
+        (
+            BotEntity.update(
+                pid=pid,
+                status=status,
+                updated_at=now,
+            )
+            .where(BotEntity.id == bot_id)
+            .execute()
+        )
+
+    def update(
+        self,
+        bot_id: str,
+        *,
+        pid: int | None = None,
+        status: int | None = None,
+    ) -> None:
+        values: dict[str, object] = {"updated_at": datetime.now()}
+        if pid is not None:
+            values["pid"] = pid
+        if status is not None:
+            values["status"] = status
+
+        (BotEntity.update(**values).where(BotEntity.id == bot_id).execute())

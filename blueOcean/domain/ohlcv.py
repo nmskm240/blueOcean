@@ -40,6 +40,13 @@ class Timeframe(IntEnum):
     FOUR_HOUR = 240
     ONE_DAY = 1440
 
+    @classmethod
+    def from_compression(cls, compression: int) -> Timeframe:
+        try:
+            return cls(compression)
+        except ValueError:
+            raise ValueError(f"Unsupported timeframe compression: {compression}")
+
     def to_duck(self) -> str:
         return f"'{int(self)} minutes'"
 
