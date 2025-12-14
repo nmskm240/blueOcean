@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
-import quantstats as qs
 from injector import Injector
 
 from blueOcean.application.di import (
@@ -14,6 +12,7 @@ from blueOcean.application.di import (
 )
 from blueOcean.application.dto import BacktestConfig, BotConfig
 from blueOcean.application.services import WorkerService
+from blueOcean.application.services import ReportService
 from blueOcean.domain.account import Account, AccountId, ApiCredential
 from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher
 from blueOcean.infra.database.repositories import AccountRepository
@@ -49,8 +48,9 @@ def run_bot(config, bot_id: str | None = None):
         raise TypeError(f"Unsupported config: {type(config)}")
 
 
-def export_report(returns: pd.Series, path: Path):
-    qs.reports.html(returns, output=str(path))
+def export_report(metrics_path: Path, output_path: Path) -> None:
+    service = ReportService()
+    service.create_report_from_metrics(metrics_path, output_path)
 
 
 def register_api_credential(
