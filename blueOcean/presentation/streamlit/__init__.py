@@ -18,15 +18,12 @@ def setup():
                     default=True,
                 ),
                 st.Page(
-                    "./blueOcean/presentation/streamlit/contents/playground.py",
-                    title="Playground",
+                    "./blueOcean/presentation/streamlit/contents/bots.py",
+                    title="Bots",
                 ),
                 st.Page(
                     "./blueOcean/presentation/streamlit/contents/reports.py",
                     title="Reports",
-                ),
-                st.Page(
-                    "./blueOcean/presentation/streamlit/contents/bots.py", title="Bots"
                 ),
                 st.Page(
                     "./blueOcean/presentation/streamlit/contents/accounts.py",

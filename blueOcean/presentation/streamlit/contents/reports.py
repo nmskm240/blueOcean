@@ -7,16 +7,18 @@ from streamlit.components.v1 import html
 
 st.title("Reports")
 
-mode = st.radio("Mode", ["Backtest", "Bot"], horizontal=True)
+mode = st.radio("Mode", ["Backtest", "Real"], horizontal=True)
 
-base_dir = Path("./out") / (mode.lower())
+base_dir = Path("./out")
 
 if not base_dir.exists():
-    st.info(f"{base_dir} がまだありません。バックテスト / Bot を実行してください。")
+    st.info(f"{base_dir} がまだありません。バックテスト / 本番稼働を実行してください。")
     st.stop()
 
+run_prefix = "backtest_" if mode == "Backtest" else "real_"
+
 runs = sorted(
-    [d for d in base_dir.iterdir() if d.is_dir()],
+    [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith(run_prefix)],
     key=lambda p: p.name,
     reverse=True,
 )
