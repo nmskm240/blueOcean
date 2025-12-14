@@ -80,3 +80,33 @@ def list_api_credentials():
     container = Injector([AppDatabaseModule()])
     repository = container.get(AccountRepository)
     return repository.list()
+
+
+def update_api_credential(
+    account_id: str,
+    exchange: str,
+    api_key: str,
+    api_secret: str,
+    is_sandbox: bool,
+    label: str,
+) -> None:
+    container = Injector([AppDatabaseModule()])
+    repository = container.get(AccountRepository)
+
+    account = Account(
+        credential=ApiCredential(
+            exchange=exchange,
+            key=api_key,
+            secret=api_secret,
+            is_sandbox=is_sandbox,
+        ),
+        label=label,
+    )
+
+    repository.update_account(account_id, account)
+
+
+def delete_api_credential(account_id: str) -> None:
+    container = Injector([AppDatabaseModule()])
+    repository = container.get(AccountRepository)
+    repository.delete_account(account_id)

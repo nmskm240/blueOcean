@@ -110,12 +110,24 @@ class AccountRepository:
         account_entity = AccountEntity.get(AccountEntity.id == id)
         return account_entity.to_domain()
 
-    def list(self) -> list[Account]:
-        return [entity.to_domain() for entity in AccountEntity.select()]
+    def list(self):
+        return [(entity.id, entity.to_domain()) for entity in AccountEntity.select()]
 
     def create_account(self, account: Account) -> str:
         entity = AccountEntity.from_domain(account)
         return entity.id
+
+    def update_account(self, account_id: str, account: Account) -> None:
+        entity = AccountEntity.get(AccountEntity.id == account_id)
+        entity.api_key = account.credential.key
+        entity.api_secret = account.credential.secret
+        entity.exchange_name = account.credential.exchange
+        entity.is_sandbox = account.credential.is_sandbox
+        entity.label = account.label
+        entity.save()
+
+    def delete_account(self, account_id: str) -> None:
+        AccountEntity.delete().where(AccountEntity.id == account_id).execute()
 
 
 class BotRepository:
