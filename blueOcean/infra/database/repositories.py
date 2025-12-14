@@ -8,7 +8,7 @@ import pyarrow.parquet as pq
 from injector import inject
 from peewee import SqliteDatabase
 
-from blueOcean.domain.account import ApiCredential
+from blueOcean.domain.account import Account, AccountId
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
 from blueOcean.infra.database.entities import AccountEntity, BotEntity
 from blueOcean.infra.logging import logger
@@ -106,14 +106,28 @@ class AccountRepository:
     def __init__(self, connection: SqliteDatabase):
         self.con = connection
 
-    def get_credential(self, account_id: str) -> ApiCredential:
-        account = AccountEntity.get(AccountEntity.id == account_id)
-        return ApiCredential(
-            exchange=account.exchange_name,
-            key=account.api_key,
-            secret=account.api_secret,
-            is_sandbox=account.is_sandbox,
-        )
+    def get_by_id(self, account_id: AccountId) -> Account:
+        account_entity = AccountEntity.get(AccountEntity.id == account_id.value)
+        return account_entity.to_domain()
+
+    def list(self) -> list[Account]:
+        return [entity.to_domain() for entity in AccountEntity.select()]
+
+    def save(self, account: Account) -> Account:
+        if account.id.is_empty():
+            entity = AccountEntity.from_domain(account)
+        else:
+            entity = AccountEntity.get(AccountEntity.id == account.id.value)
+            entity.api_key = account.credential.key
+            entity.api_secret = account.credential.secret
+            entity.exchange_name = account.credential.exchange
+            entity.is_sandbox = account.credential.is_sandbox
+            entity.label = account.label
+            entity.save()
+        return entity.to_domain()
+
+    def delete_by_id(self, account_id: AccountId) -> None:
+        AccountEntity.delete().where(AccountEntity.id == account_id.value).execute()
 
 
 class BotRepository:

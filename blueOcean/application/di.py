@@ -12,7 +12,7 @@ from blueOcean.application.broker import Broker
 from blueOcean.application.dto import BacktestConfig, BotConfig
 from blueOcean.application.feed import LocalDataFeed, QueueDataFeed
 from blueOcean.application.store import IStore
-from blueOcean.domain.account import ApiCredential
+from blueOcean.domain.account import AccountId, ApiCredential
 from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher, Timeframe
 from blueOcean.infra.database.entities import AccountEntity, BotEntity, proxy
 from blueOcean.infra.database.repositories import AccountRepository, OhlcvRepository
@@ -79,7 +79,8 @@ class RealTradeModule(Module):
     @singleton
     @provider
     def api_credential(self, repository: AccountRepository) -> ApiCredential:
-        return repository.get_credential(self.config.account_id)
+        account = repository.get_by_id(AccountId(self.config.account_id))
+        return account.credential
 
     @provider
     def cerebro_engine(

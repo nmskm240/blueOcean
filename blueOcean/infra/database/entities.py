@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 import cuid2
@@ -12,6 +14,8 @@ from peewee import (
     SmallIntegerField,
     TextField,
 )
+
+from blueOcean.domain.account import Account, AccountId, ApiCredential
 
 proxy = DatabaseProxy()
 
@@ -34,6 +38,29 @@ class AccountEntity(BaseModel):
     class Meta:
         table_name = "accounts"
         indexes = ((("exchange_name", "is_sandbox", "api_key"), True),)
+
+    def to_domain(self) -> Account:
+        return Account(
+            id=AccountId(self.id),
+            credential=ApiCredential(
+                exchange=self.exchange_name,
+                key=self.api_key,
+                secret=self.api_secret,
+                is_sandbox=self.is_sandbox,
+            ),
+            label=self.label,
+        )
+
+    @classmethod
+    def from_domain(cls, account: Account) -> AccountEntity:
+        return cls.create(
+            api_key=account.credential.key,
+            api_secret=account.credential.secret,
+            exchange_name=account.credential.exchange,
+            is_sandbox=account.credential.is_sandbox,
+            label=account.label,
+            updated_at=datetime.now(),
+        )
 
 
 class BotEntity(BaseModel):

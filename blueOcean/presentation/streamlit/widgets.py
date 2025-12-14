@@ -1,7 +1,9 @@
 import ccxt
+import pandas as pd
 import streamlit as st
 
 from blueOcean.application.decorators import strategy_registry
+from blueOcean.domain.account import Account
 from blueOcean.domain.ohlcv import Timeframe
 
 
@@ -53,3 +55,48 @@ def strategy_param_settings_form(strategy_class: type):
             value = st.text_input(name, value=default_value)
         result[name] = value
     return result
+
+
+def api_credential_form(
+    *,
+    form_key: str,
+    account: Account | None = None,
+    title: str = "API Credential",
+    submit_label: str = "Save",
+):
+    exchanges = ccxt.exchanges
+    if account is not None:
+        try:
+            initial_index = exchanges.index(account.credential.exchange)
+        except ValueError:
+            initial_index = 0
+        api_key_default = account.credential.key
+        api_secret_default = account.credential.secret
+        is_sandbox_default = account.credential.is_sandbox
+        label_default = account.label
+    else:
+        initial_index = 0
+        api_key_default = ""
+        api_secret_default = ""
+        is_sandbox_default = True
+        label_default = ""
+
+    with st.form(form_key):
+        st.header(title)
+        exchange = st.selectbox("exchange", exchanges, index=initial_index)
+        api_key = st.text_input("API key", value=api_key_default)
+        api_secret = st.text_input(
+            "API secret", type="password", value=api_secret_default
+        )
+        is_sandbox = st.checkbox("Sandbox mode", value=is_sandbox_default)
+        label = st.text_input("label", value=label_default)
+        submitted = st.form_submit_button(submit_label)
+
+    return submitted, exchange, api_key, api_secret, is_sandbox, label
+
+
+def account_table(records):
+    if not records:
+        return
+    df = pd.DataFrame.from_records(records)
+    st.table(df[["Label", "Exchange", "Sandbox"]])
