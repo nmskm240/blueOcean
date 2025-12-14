@@ -23,6 +23,9 @@ def setup():
                 st.Page(
                     "./blueOcean/presentation/streamlit/contents/bots.py", title="Bots"
                 ),
+                st.Page(
+                    "./blueOcean/presentation/streamlit/contents/accounts.py", title="Accounts"
+                ),
             ],
             "Strategies": [
                 st.Page(

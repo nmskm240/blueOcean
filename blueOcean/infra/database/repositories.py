@@ -106,9 +106,12 @@ class AccountRepository:
     def __init__(self, connection: SqliteDatabase):
         self.con = connection
 
-    def find_by_id(self, id: str) -> Account:
+    def get(self, id: str) -> Account:
         account_entity = AccountEntity.get(AccountEntity.id == id)
         return account_entity.to_domain()
+
+    def list(self) -> list[Account]:
+        return [entity.to_domain() for entity in AccountEntity.select()]
 
     def create_account(self, account: Account) -> str:
         entity = AccountEntity.from_domain(account)

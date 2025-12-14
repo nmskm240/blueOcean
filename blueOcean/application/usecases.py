@@ -6,7 +6,12 @@ import pandas as pd
 import quantstats as qs
 from injector import Injector
 
-from blueOcean.application.di import AppDatabaseModule, BacktestModule, FetcherModule, RealTradeModule
+from blueOcean.application.di import (
+    AppDatabaseModule,
+    BacktestModule,
+    FetcherModule,
+    RealTradeModule,
+)
 from blueOcean.application.dto import BacktestConfig, BotConfig
 from blueOcean.application.services import WorkerService
 from blueOcean.domain.account import Account, ApiCredential
@@ -69,3 +74,9 @@ def register_api_credential(
     )
 
     return repository.create_account(account)
+
+
+def list_api_credentials():
+    container = Injector([AppDatabaseModule()])
+    repository = container.get(AccountRepository)
+    return repository.list()
