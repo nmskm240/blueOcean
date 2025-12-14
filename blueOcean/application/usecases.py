@@ -12,7 +12,6 @@ from blueOcean.application.di import (
 )
 from blueOcean.application.dto import BacktestConfig, BotConfig
 from blueOcean.application.services import WorkerService
-from blueOcean.application.services import ReportService
 from blueOcean.domain.account import Account, AccountId, ApiCredential
 from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher
 from blueOcean.infra.database.repositories import AccountRepository
@@ -48,9 +47,9 @@ def run_bot(config, bot_id: str | None = None):
         raise TypeError(f"Unsupported config: {type(config)}")
 
 
-def export_report(metrics_path: Path, output_path: Path) -> None:
-    service = ReportService()
-    service.create_report_from_metrics(metrics_path, output_path)
+def export_report(metrics_path: Path) -> None:
+    # TODO: 本番稼働の異常終了用のレポート作成処理
+    raise NotImplementedError()
 
 
 def register_api_credential(

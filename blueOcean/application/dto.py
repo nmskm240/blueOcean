@@ -15,6 +15,14 @@ class BotConfig:
     strategy_cls: Type[bt.Strategy]
     strategy_args: dict[str, Any]
 
+    def to_metadata(self) -> dict[str, Any]:
+        return {
+            "run_type": "bot",
+            "symbol": self.symbol,
+            "compression": self.compression,
+            "account_id": self.account_id,
+        }
+
 
 @dataclass
 class BacktestConfig:
@@ -25,6 +33,18 @@ class BacktestConfig:
     strategy_args: dict[str, Any]
     cash: int
     time_range: DatetimeRange
+
+    def to_metadata(self) -> dict[str, Any]:
+        return {
+            "run_type": "backtest",
+            "symbol": self.symbol,
+            "source": self.source,
+            "compression": self.compression,
+            "time_range": {
+                "start_at": self.time_range.start_at.isoformat(),
+                "end_at": self.time_range.end_at.isoformat(),
+            },
+        }
 
 
 @dataclass(frozen=True)

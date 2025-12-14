@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -55,58 +55,37 @@ class WorkerService:
 
 
 class ReportService:
-    def create_bot_run_paths(self, symbol: str) -> tuple[Path, Path, Path]:
+    def __init__(self, run_type: str):
         now = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
-        run_dir = Path("./out") / "bot" / f"{symbol}_{now}"
+        run_dir = Path("./out") / f"{run_type}_{now}"
         run_dir.mkdir(parents=True, exist_ok=True)
-        metrics_path = run_dir / "metrics.csv"
-        report_path = run_dir / "quantstats_report.html"
-        return run_dir, metrics_path, report_path
+        self.run_dir: Path = run_dir
+        self.metrics_path: Path = run_dir / "metrics.csv"
+        self.report_path: Path = run_dir / "quantstats_report.html"
 
-    def create_backtest_run_paths(self, symbol: str) -> tuple[Path, Path, Path]:
-        now = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
-        run_dir = Path("./out") / "backtest" / f"{symbol}_{now}"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        metrics_path = run_dir / "metrics.csv"
-        report_path = run_dir / "quantstats_report.html"
-        return run_dir, metrics_path, report_path
-
-    def save_run_metadata(self, run_dir: Path, config: BacktestConfig | BotConfig, mode: str) -> None:
+    def save_run_metadata(self, config: BacktestConfig | BotConfig, mode: str) -> None:
         data: dict[str, object] = {
             "mode": mode,
             "created_at": datetime.now(tz=UTC).isoformat(),
-            "strategy": getattr(config.strategy_cls, "__name__", str(config.strategy_cls)),
+            "strategy": getattr(
+                config.strategy_cls, "__name__", str(config.strategy_cls)
+            ),
             "params": config.strategy_args,
         }
+        data.update(config.to_metadata())
 
-        if isinstance(config, BacktestConfig):
-            data.update(
-                {
-                    "run_type": "backtest",
-                    "symbol": config.symbol,
-                    "source": config.source,
-                    "compression": config.compression,
-                    "time_range": {
-                        "start_at": str(config.time_range.start_at),
-                        "end_at": str(config.time_range.end_at),
-                    },
-                }
-            )
-        elif isinstance(config, BotConfig):
-            data.update(
-                {
-                    "run_type": "bot",
-                    "symbol": config.symbol,
-                    "compression": config.compression,
-                    "account_id": config.account_id,
-                }
-            )
+        meta_path = self.run_dir / "meta.json"
+        meta_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
-        meta_path = Path(run_dir) / "meta.json"
-        meta_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    def create_report_from_metrics(self, metrics_path: Path, output_path: Path) -> None:
-        metrics_path = Path(metrics_path)
+    def create_report(
+        self,
+        metrics_path: Path | None = None,
+        output_path: Path | None = None,
+    ) -> None:
+        # デフォルトは自身が管理するパスを使用する
+        metrics_path = Path(metrics_path or self.metrics_path)
         if not metrics_path.exists():
             return
 
@@ -127,6 +106,6 @@ class ReportService:
 
         returns = pd.Series(df["value"].values, index=df["timestamp"])
 
-        output_path = Path(output_path)
+        output_path = Path(output_path or self.report_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         qs.reports.html(returns, output=str(output_path))
