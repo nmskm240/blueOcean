@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class Account:
     credential: ApiCredential
-    label: str | None
+    label: str
 
 
 @dataclass(frozen=True)

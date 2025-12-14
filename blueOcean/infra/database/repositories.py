@@ -8,7 +8,7 @@ import pyarrow.parquet as pq
 from injector import inject
 from peewee import SqliteDatabase
 
-from blueOcean.domain.account import ApiCredential
+from blueOcean.domain.account import Account
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
 from blueOcean.infra.database.entities import AccountEntity, BotEntity
 from blueOcean.infra.logging import logger
@@ -106,14 +106,13 @@ class AccountRepository:
     def __init__(self, connection: SqliteDatabase):
         self.con = connection
 
-    def get_credential(self, account_id: str) -> ApiCredential:
-        account = AccountEntity.get(AccountEntity.id == account_id)
-        return ApiCredential(
-            exchange=account.exchange_name,
-            key=account.api_key,
-            secret=account.api_secret,
-            is_sandbox=account.is_sandbox,
-        )
+    def find_by_id(self, id: str) -> Account:
+        account_entity = AccountEntity.get(AccountEntity.id == id)
+        return account_entity.to_domain()
+
+    def create_account(self, account: Account) -> str:
+        entity = AccountEntity.from_domain(account)
+        return entity.id
 
 
 class BotRepository:

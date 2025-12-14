@@ -79,7 +79,8 @@ class RealTradeModule(Module):
     @singleton
     @provider
     def api_credential(self, repository: AccountRepository) -> ApiCredential:
-        return repository.get_credential(self.config.account_id)
+        account = repository.get(self.config.account_id)
+        return account.credential
 
     @provider
     def cerebro_engine(
