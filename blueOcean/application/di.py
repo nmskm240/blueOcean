@@ -63,8 +63,9 @@ class FetcherModule(Module):
 
 
 class RealTradeModule(Module):
-    def __init__(self, config: BotConfig):
+    def __init__(self, config: BotConfig, metrics_path: str | None = None):
         self.config = config
+        self.metrics_path = metrics_path
 
     def configure(self, binder):
         binder.install(ExchangeModule())
@@ -90,13 +91,19 @@ class RealTradeModule(Module):
         cerebro.broker = broker
         cerebro.adddata(feed)
         cerebro.addanalyzer(bt.analyzers.TimeReturn)
+        cerebro.addanalyzer(
+            StreamingAnalyzer,
+            analyzers=["timereturn"],
+            path=self.metrics_path or "./out/metrics.csv",
+        )
         cerebro.addstrategy(self.config.strategy_cls, **self.config.strategy_args)
         return cerebro
 
 
 class BacktestModule(Module):
-    def __init__(self, config: BacktestConfig):
+    def __init__(self, config: BacktestConfig, metrics_path: str | None = None):
         self.config = config
+        self.metrics_path = metrics_path or "./out/metrics.csv"
 
     def configure(self, binder):
         binder.install(HistoricalDataModule())
@@ -124,7 +131,7 @@ class BacktestModule(Module):
         cerebro.addanalyzer(
             StreamingAnalyzer,
             analyzers=["timereturn"],
-            path="./out/metrics.csv",
+            path=self.metrics_path,
         )
         cerebro.addstrategy(self.config.strategy_cls, **self.config.strategy_args)
         return cerebro

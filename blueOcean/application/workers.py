@@ -2,6 +2,7 @@ import threading
 import time
 from datetime import UTC, datetime, timedelta
 from multiprocessing import Process
+from pathlib import Path
 from queue import Queue
 
 import backtrader as bt
@@ -9,6 +10,7 @@ from injector import Injector
 
 from blueOcean.application.di import BacktestModule, RealTradeModule
 from blueOcean.application.dto import BacktestConfig, BotConfig
+from blueOcean.application.services import ReportService
 from blueOcean.domain.ohlcv import OhlcvFetcher
 
 
@@ -17,11 +19,16 @@ class RealTradeWorker(Process):
         super().__init__()
         self.config = config
 
+        service = ReportService()
+        self.run_dir, self.metrics_path, self.report_path = (
+            service.create_bot_run_paths(self.config.symbol)
+        )
+
         self.threads = []
         self.should_terminate = False
 
     def run(self):
-        container = Injector([RealTradeModule(self.config)])
+        container = Injector([RealTradeModule(self.config, str(self.metrics_path))])
 
         fetcher = container.get(OhlcvFetcher)
         queue = container.get(Queue)
@@ -62,14 +69,20 @@ class RealTradeWorker(Process):
                     queue.put_nowait(ohlcv)
                     break
 
+
 class BacktestWorker(Process):
-    def __init__(self, config:BacktestConfig):
+    def __init__(self, config: BacktestConfig):
         super().__init__()
 
         self.config = config
 
+        service = ReportService()
+        self.run_dir, self.metrics_path, self.report_path = (
+            service.create_backtest_run_paths(self.config.symbol)
+        )
+
     def run(self):
-        container = Injector([BacktestModule(self.config)])
+        container = Injector([BacktestModule(self.config, str(self.metrics_path))])
 
         cerebro = container.get(bt.Cerebro)
         cerebro.run()
