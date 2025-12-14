@@ -6,10 +6,12 @@ import pandas as pd
 import quantstats as qs
 from injector import Injector
 
-from blueOcean.application.di import BacktestModule, FetcherModule, RealTradeModule
+from blueOcean.application.di import AppDatabaseModule, BacktestModule, FetcherModule, RealTradeModule
 from blueOcean.application.dto import BacktestConfig, BotConfig
 from blueOcean.application.services import WorkerService
+from blueOcean.domain.account import Account, ApiCredential
 from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher
+from blueOcean.infra.database.repositories import AccountRepository
 
 
 def fetch_ohlcv(source: str, symbol: str):
@@ -44,3 +46,26 @@ def run_bot(config, bot_id: str | None = None):
 
 def export_report(returns: pd.Series, path: Path):
     qs.reports.html(returns, output=str(path))
+
+
+def register_api_credential(
+    exchange: str,
+    api_key: str,
+    api_secret: str,
+    is_sandbox: bool,
+    label: str,
+) -> str:
+    container = Injector([AppDatabaseModule()])
+    repository = container.get(AccountRepository)
+
+    account = Account(
+        credential=ApiCredential(
+            exchange=exchange,
+            key=api_key,
+            secret=api_secret,
+            is_sandbox=is_sandbox,
+        ),
+        label=label,
+    )
+
+    return repository.create_account(account)

@@ -53,3 +53,16 @@ def strategy_param_settings_form(strategy_class: type):
             value = st.text_input(name, value=default_value)
         result[name] = value
     return result
+
+
+def api_credential_form():
+    with st.form("api_credential"):
+        st.header("API Credential")
+        exchange = st.selectbox("exchange", ccxt.exchanges)
+        api_key = st.text_input("API key")
+        api_secret = st.text_input("API secret", type="password")
+        is_sandbox = st.checkbox("Sandbox mode", value=True)
+        label = st.text_input("label")
+        submitted = st.form_submit_button("Save")
+
+    return submitted, exchange, api_key, api_secret, is_sandbox, label
