@@ -14,7 +14,7 @@ from blueOcean.application.di import (
 )
 from blueOcean.application.dto import BacktestConfig, BotConfig
 from blueOcean.application.services import WorkerService
-from blueOcean.domain.account import Account, ApiCredential
+from blueOcean.domain.account import Account, AccountId, ApiCredential
 from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher
 from blueOcean.infra.database.repositories import AccountRepository
 
@@ -64,6 +64,7 @@ def register_api_credential(
     repository = container.get(AccountRepository)
 
     account = Account(
+        id=AccountId.empty(),
         credential=ApiCredential(
             exchange=exchange,
             key=api_key,
@@ -73,7 +74,8 @@ def register_api_credential(
         label=label,
     )
 
-    return repository.create_account(account)
+    saved = repository.save(account)
+    return saved.id.value or ""
 
 
 def list_api_credentials():
@@ -94,6 +96,7 @@ def update_api_credential(
     repository = container.get(AccountRepository)
 
     account = Account(
+        id=AccountId(account_id),
         credential=ApiCredential(
             exchange=exchange,
             key=api_key,
@@ -103,10 +106,10 @@ def update_api_credential(
         label=label,
     )
 
-    repository.update_account(account_id, account)
+    repository.save(account)
 
 
 def delete_api_credential(account_id: str) -> None:
     container = Injector([AppDatabaseModule()])
     repository = container.get(AccountRepository)
-    repository.delete_account(account_id)
+    repository.delete_by_id(AccountId(account_id))

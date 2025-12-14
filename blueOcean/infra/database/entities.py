@@ -15,7 +15,7 @@ from peewee import (
     TextField,
 )
 
-from blueOcean.domain.account import Account, ApiCredential
+from blueOcean.domain.account import Account, AccountId, ApiCredential
 
 proxy = DatabaseProxy()
 
@@ -41,6 +41,7 @@ class AccountEntity(BaseModel):
 
     def to_domain(self) -> Account:
         return Account(
+            id=AccountId(self.id),
             credential=ApiCredential(
                 exchange=self.exchange_name,
                 key=self.api_key,
@@ -58,6 +59,7 @@ class AccountEntity(BaseModel):
             exchange_name=account.credential.exchange,
             is_sandbox=account.credential.is_sandbox,
             label=account.label,
+            updated_at=datetime.now(),
         )
 
 

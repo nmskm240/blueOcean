@@ -8,7 +8,7 @@ import pyarrow.parquet as pq
 from injector import inject
 from peewee import SqliteDatabase
 
-from blueOcean.domain.account import Account
+from blueOcean.domain.account import Account, AccountId
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
 from blueOcean.infra.database.entities import AccountEntity, BotEntity
 from blueOcean.infra.logging import logger
@@ -106,28 +106,28 @@ class AccountRepository:
     def __init__(self, connection: SqliteDatabase):
         self.con = connection
 
-    def get(self, id: str) -> Account:
-        account_entity = AccountEntity.get(AccountEntity.id == id)
+    def get_by_id(self, account_id: AccountId) -> Account:
+        account_entity = AccountEntity.get(AccountEntity.id == account_id.value)
         return account_entity.to_domain()
 
-    def list(self):
-        return [(entity.id, entity.to_domain()) for entity in AccountEntity.select()]
+    def list(self) -> list[Account]:
+        return [entity.to_domain() for entity in AccountEntity.select()]
 
-    def create_account(self, account: Account) -> str:
-        entity = AccountEntity.from_domain(account)
-        return entity.id
+    def save(self, account: Account) -> Account:
+        if account.id.is_empty():
+            entity = AccountEntity.from_domain(account)
+        else:
+            entity = AccountEntity.get(AccountEntity.id == account.id.value)
+            entity.api_key = account.credential.key
+            entity.api_secret = account.credential.secret
+            entity.exchange_name = account.credential.exchange
+            entity.is_sandbox = account.credential.is_sandbox
+            entity.label = account.label
+            entity.save()
+        return entity.to_domain()
 
-    def update_account(self, account_id: str, account: Account) -> None:
-        entity = AccountEntity.get(AccountEntity.id == account_id)
-        entity.api_key = account.credential.key
-        entity.api_secret = account.credential.secret
-        entity.exchange_name = account.credential.exchange
-        entity.is_sandbox = account.credential.is_sandbox
-        entity.label = account.label
-        entity.save()
-
-    def delete_account(self, account_id: str) -> None:
-        AccountEntity.delete().where(AccountEntity.id == account_id).execute()
+    def delete_by_id(self, account_id: AccountId) -> None:
+        AccountEntity.delete().where(AccountEntity.id == account_id.value).execute()
 
 
 class BotRepository:
