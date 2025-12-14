@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -8,17 +9,18 @@ import quantstats as qs
 from injector import inject
 
 from blueOcean.application.dto import BacktestConfig, BotConfig
-from blueOcean.application.workers import BacktestWorker, RealTradeWorker
 from blueOcean.infra.database.repositories import BotRepository
 
 
 class WorkerService:
     @inject
     def __init__(self, bot_repository: BotRepository):
-        self.bot_workers: dict[str, RealTradeWorker] = {}
+        self.bot_workers = {}
         self.bot_repository = bot_repository
 
-    def spawn_real_trade(self, bot_id: str, config: BotConfig) -> RealTradeWorker:
+    def spawn_real_trade(self, bot_id: str, config: BotConfig):
+        from blueOcean.application.workers import RealTradeWorker
+
         worker = RealTradeWorker(config)
 
         worker.start()
@@ -44,7 +46,9 @@ class WorkerService:
         )
         del self.bot_workers[bot_id]
 
-    def spawn_backtest(self, config: BacktestConfig) -> BacktestWorker:
+    def spawn_backtest(self, config: BacktestConfig):
+        from blueOcean.application.workers import BacktestWorker
+
         worker = BacktestWorker(config)
         worker.start()
         return worker
@@ -66,6 +70,40 @@ class ReportService:
         metrics_path = run_dir / "metrics.csv"
         report_path = run_dir / "quantstats_report.html"
         return run_dir, metrics_path, report_path
+
+    def save_run_metadata(self, run_dir: Path, config: BacktestConfig | BotConfig, mode: str) -> None:
+        data: dict[str, object] = {
+            "mode": mode,
+            "created_at": datetime.now(tz=UTC).isoformat(),
+            "strategy": getattr(config.strategy_cls, "__name__", str(config.strategy_cls)),
+            "params": config.strategy_args,
+        }
+
+        if isinstance(config, BacktestConfig):
+            data.update(
+                {
+                    "run_type": "backtest",
+                    "symbol": config.symbol,
+                    "source": config.source,
+                    "compression": config.compression,
+                    "time_range": {
+                        "start_at": str(config.time_range.start_at),
+                        "end_at": str(config.time_range.end_at),
+                    },
+                }
+            )
+        elif isinstance(config, BotConfig):
+            data.update(
+                {
+                    "run_type": "bot",
+                    "symbol": config.symbol,
+                    "compression": config.compression,
+                    "account_id": config.account_id,
+                }
+            )
+
+        meta_path = Path(run_dir) / "meta.json"
+        meta_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def create_report_from_metrics(self, metrics_path: Path, output_path: Path) -> None:
         metrics_path = Path(metrics_path)

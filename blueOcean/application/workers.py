@@ -23,6 +23,7 @@ class RealTradeWorker(Process):
         self.run_dir, self.metrics_path, self.report_path = (
             service.create_bot_run_paths(self.config.symbol)
         )
+        service.save_run_metadata(self.run_dir, self.config, mode="bot")
 
         self.threads = []
         self.should_terminate = False
@@ -44,7 +45,7 @@ class RealTradeWorker(Process):
             t.start()
 
         cerebro = container.get(bt.Cerebro)
-        cerebro.run()
+        cerebro.run(runonce=False)
 
     def terminate(self):
         self.should_terminate = True
@@ -80,9 +81,10 @@ class BacktestWorker(Process):
         self.run_dir, self.metrics_path, self.report_path = (
             service.create_backtest_run_paths(self.config.symbol)
         )
+        service.save_run_metadata(self.run_dir, self.config, mode="backtest")
 
     def run(self):
         container = Injector([BacktestModule(self.config, str(self.metrics_path))])
 
         cerebro = container.get(bt.Cerebro)
-        cerebro.run()
+        cerebro.run(runonce=False)

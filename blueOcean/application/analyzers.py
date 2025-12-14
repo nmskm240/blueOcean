@@ -2,8 +2,6 @@ from pathlib import Path
 
 import backtrader as bt
 
-from blueOcean.application.services import ReportService
-
 
 class StreamingAnalyzer(bt.Analyzer):
     params = dict(analyzers=None, path="metrics.csv")
@@ -46,6 +44,9 @@ class StreamingAnalyzer(bt.Analyzer):
 
         metrics_path = Path(self.p.path)
         output_path = metrics_path.with_name("quantstats_report.html")
+
+        # 遅延インポートで循環依存を避ける
+        from blueOcean.application.services import ReportService
 
         service = ReportService()
         service.create_report_from_metrics(metrics_path, output_path)
