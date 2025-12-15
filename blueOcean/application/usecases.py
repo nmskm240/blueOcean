@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
-import quantstats as qs
 from injector import Injector
 
 from blueOcean.application.di import (
@@ -49,8 +47,9 @@ def run_bot(config, bot_id: str | None = None):
         raise TypeError(f"Unsupported config: {type(config)}")
 
 
-def export_report(returns: pd.Series, path: Path):
-    qs.reports.html(returns, output=str(path))
+def export_report(metrics_path: Path) -> None:
+    # TODO: 本番稼働の異常終了用のレポート作成処理
+    raise NotImplementedError()
 
 
 def register_api_credential(

@@ -2,6 +2,7 @@ import threading
 import time
 from datetime import UTC, datetime, timedelta
 from multiprocessing import Process
+from pathlib import Path
 from queue import Queue
 
 import backtrader as bt
@@ -37,7 +38,7 @@ class RealTradeWorker(Process):
             t.start()
 
         cerebro = container.get(bt.Cerebro)
-        cerebro.run()
+        cerebro.run(runonce=False)
 
     def terminate(self):
         self.should_terminate = True
@@ -62,8 +63,9 @@ class RealTradeWorker(Process):
                     queue.put_nowait(ohlcv)
                     break
 
+
 class BacktestWorker(Process):
-    def __init__(self, config:BacktestConfig):
+    def __init__(self, config: BacktestConfig):
         super().__init__()
 
         self.config = config
@@ -72,4 +74,4 @@ class BacktestWorker(Process):
         container = Injector([BacktestModule(self.config)])
 
         cerebro = container.get(bt.Cerebro)
-        cerebro.run()
+        cerebro.run(runonce=False)

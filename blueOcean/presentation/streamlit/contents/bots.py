@@ -1,17 +1,16 @@
 import streamlit as st
 
-from blueOcean.application.services import WorkerService
 from blueOcean.presentation.streamlit import widgets
 
-st.title("Bot real running test")
 
-source = st.text_input("source")
-symbol = st.text_input("symbol")
-strategy_cls = widgets.strategy_selectbox()
-strategy_args = widgets.strategy_param_settings_form(strategy_cls)
+st.header("Bots")
+st.caption("Backtest と Real Trade のエントリーポイント")
 
-if st.button("Run"):
-    with st.spinner("Testing..."):
-        service = WorkerService()
-        p = service.spawn_bot("hoge", source, symbol, strategy_cls, strategy_args)
-        st.success(f"(PID={p.pid})")
+
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Run Backtest"):
+        widgets.show_backtest_dialog()
+with col2:
+    if st.button("Run Real Trade"):
+        widgets.show_real_trade_dialog()

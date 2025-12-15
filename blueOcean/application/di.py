@@ -11,6 +11,7 @@ from blueOcean.application.analyzers import StreamingAnalyzer
 from blueOcean.application.broker import Broker
 from blueOcean.application.dto import BacktestConfig, BotConfig
 from blueOcean.application.feed import LocalDataFeed, QueueDataFeed
+from blueOcean.application.services import ReportService
 from blueOcean.application.store import IStore
 from blueOcean.domain.account import AccountId, ApiCredential
 from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher, Timeframe
@@ -82,14 +83,30 @@ class RealTradeModule(Module):
         account = repository.get_by_id(AccountId(self.config.account_id))
         return account.credential
 
+    @singleton
+    @provider
+    def report_service(self) -> ReportService:
+        service = ReportService("real")
+        service.save_run_metadata(self.config, mode="real")
+        return service
+
     @provider
     def cerebro_engine(
-        self, broker: bt.broker.BrokerBase, feed: bt.feed.DataBase
+        self,
+        broker: bt.broker.BrokerBase,
+        feed: bt.feed.DataBase,
+        report_service: ReportService,
     ) -> bt.Cerebro:
         cerebro = bt.Cerebro()
         cerebro.broker = broker
         cerebro.adddata(feed)
         cerebro.addanalyzer(bt.analyzers.TimeReturn)
+        cerebro.addanalyzer(
+            StreamingAnalyzer,
+            analyzers=["timereturn"],
+            path=str(report_service.metrics_path),
+            report_service=report_service,
+        )
         cerebro.addstrategy(self.config.strategy_cls, **self.config.strategy_args)
         return cerebro
 
@@ -115,8 +132,19 @@ class BacktestModule(Module):
             end_at=self.config.time_range.end_at,
         )
 
+    @singleton
     @provider
-    def cerebro_engine(self, feed: bt.feed.DataBase) -> bt.Cerebro:
+    def report_service(self) -> ReportService:
+        service = ReportService("backtest")
+        service.save_run_metadata(self.config, mode="backtest")
+        return service
+
+    @provider
+    def cerebro_engine(
+        self,
+        feed: bt.feed.DataBase,
+        report_service: ReportService,
+    ) -> bt.Cerebro:
         cerebro = bt.Cerebro()
         cerebro.adddata(feed)
         cerebro.broker.setcash(self.config.cash)
@@ -124,7 +152,8 @@ class BacktestModule(Module):
         cerebro.addanalyzer(
             StreamingAnalyzer,
             analyzers=["timereturn"],
-            path="./out/metrics.csv",
+            path=str(report_service.metrics_path),
+            report_service=report_service,
         )
         cerebro.addstrategy(self.config.strategy_cls, **self.config.strategy_args)
         return cerebro

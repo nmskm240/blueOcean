@@ -1,8 +1,12 @@
+from datetime import UTC, datetime
+
 import ccxt
 import pandas as pd
 import streamlit as st
 
 from blueOcean.application.decorators import strategy_registry
+from blueOcean.application import usecases
+from blueOcean.application.dto import BacktestConfig, BotConfig, DatetimeRange
 from blueOcean.domain.account import Account
 from blueOcean.domain.ohlcv import Timeframe
 
@@ -100,3 +104,81 @@ def account_table(records):
         return
     df = pd.DataFrame.from_records(records)
     st.table(df[["Label", "Exchange", "Sandbox"]])
+
+
+def show_backtest_dialog():
+    dialog = st.dialog("Run Backtest")
+
+    @dialog
+    def _dialog():
+        with st.form("backtest_form"):
+            st.subheader("Backtest settings")
+            source, symbol, timeframe, start_at, end_at = backtest_settings_form()
+            strategy = strategy_selectbox()
+            with st.expander("params"):
+                params = strategy_param_settings_form(strategy)
+            submitted = st.form_submit_button("Run Backtest")
+
+        if submitted:
+            with st.spinner("Running backtest..."):
+                config = BacktestConfig(
+                    symbol=symbol,
+                    source=source,
+                    compression=timeframe.value,
+                    strategy_cls=strategy,
+                    strategy_args=params,
+                    cash=10_000,
+                    time_range=DatetimeRange(start_at=start_at, end_at=end_at),
+                )
+                worker = usecases.run_bot(config)
+                worker.join()
+            st.toast("Backtest completed", icon="🎉")
+
+    _dialog()
+
+
+def show_real_trade_dialog():
+    dialog = st.dialog("Run Real Trade")
+
+    @dialog
+    def _dialog():
+        accounts = usecases.list_api_credentials()
+        if not accounts:
+            st.info(
+                "No API credentials registered. Please register one on the Accounts page."
+            )
+            return
+
+        options = {
+            f"{a.label} / {a.credential.exchange} ({'sandbox' if a.credential.is_sandbox else 'live'})": (
+                a.id.value or ""
+            )
+            for a in accounts
+        }
+        account_label = st.selectbox("Account", list(options.keys()))
+        account_id = options[account_label]
+
+        with st.form("real_trade_form"):
+            st.subheader("Real trade settings")
+            symbol = st.text_input("symbol")
+            timeframe_name = st.selectbox("timeframe", [e.name for e in Timeframe])
+            strategy_cls = strategy_selectbox()
+            with st.expander("params"):
+                strategy_args = strategy_param_settings_form(strategy_cls)
+            submitted = st.form_submit_button("Run Real Trade")
+
+        if submitted:
+            compression = Timeframe[timeframe_name].value
+            bot_id = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
+            with st.spinner("Starting real trade bot..."):
+                config = BotConfig(
+                    account_id=account_id,
+                    symbol=symbol,
+                    compression=compression,
+                    strategy_cls=strategy_cls,
+                    strategy_args=strategy_args,
+                )
+                worker = usecases.run_bot(config, bot_id=bot_id)
+            st.success(f"Real trade bot started (bot_id={bot_id}, pid={worker.pid})")
+
+    _dialog()
