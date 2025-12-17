@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 
 import duckdb
@@ -9,8 +8,13 @@ from injector import inject
 from peewee import SqliteDatabase
 
 from blueOcean.domain.account import Account, AccountId
+from blueOcean.domain.bot import BacktestContext, Bot, LiveContext
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
-from blueOcean.infra.database.entities import AccountEntity, BotEntity
+from blueOcean.infra.database.entities import (
+    AccountEntity,
+    BotBacktestEntity,
+    BotLiveEntity,
+)
 from blueOcean.infra.logging import logger
 
 
@@ -114,16 +118,9 @@ class AccountRepository:
         return [entity.to_domain() for entity in AccountEntity.select()]
 
     def save(self, account: Account) -> Account:
-        if account.id.is_empty():
-            entity = AccountEntity.from_domain(account)
-        else:
-            entity = AccountEntity.get(AccountEntity.id == account.id.value)
-            entity.api_key = account.credential.key
-            entity.api_secret = account.credential.secret
-            entity.exchange_name = account.credential.exchange
-            entity.is_sandbox = account.credential.is_sandbox
-            entity.label = account.label
-            entity.save()
+        entity = AccountEntity.from_domain(account)
+
+        entity.save(force_insert=account.id.is_empty)
         return entity.to_domain()
 
     def delete_by_id(self, account_id: AccountId) -> None:
@@ -131,36 +128,25 @@ class AccountRepository:
 
 
 class BotRepository:
-    STATUS_STOPPED = 0
-    STATUS_RUNNING = 1
-
     @inject
     def __init__(self, connection: SqliteDatabase):
         self.con = connection
 
-    def save(self, bot_id: str, pid: int, status: int) -> None:
-        now = datetime.now()
-        (
-            BotEntity.update(
-                pid=pid,
-                status=status,
-                updated_at=now,
-            )
-            .where(BotEntity.id == bot_id)
-            .execute()
-        )
+    def save(self, session: Bot) -> Bot:
+        if isinstance(session.context, LiveContext):
+            entity = BotLiveEntity.from_domain(session)
+        elif isinstance(session.context, BacktestContext):
+            entity = BotBacktestEntity.from_domain(session)
+        else:
+            raise ValueError("Unsupported BotContext")
 
-    def update(
-        self,
-        bot_id: str,
-        *,
-        pid: int | None = None,
-        status: int | None = None,
-    ) -> None:
-        values: dict[str, object] = {"updated_at": datetime.now()}
-        if pid is not None:
-            values["pid"] = pid
-        if status is not None:
-            values["status"] = status
+        entity.save(force_insert=session.id.is_empty)
+        return entity.to_domain()
 
-        (BotEntity.update(**values).where(BotEntity.id == bot_id).execute())
+    def get_all(self) -> list[Bot]:
+        live_sessions = BotLiveEntity.select().order_by(BotLiveEntity.id)
+        backtest_sessions = BotBacktestEntity.select().order_by(BotBacktestEntity.id)
+        sessions: list[Bot] = []
+        sessions.extend([e.to_domain() for e in live_sessions])
+        sessions.extend([e.to_domain() for e in backtest_sessions])
+        return sessions

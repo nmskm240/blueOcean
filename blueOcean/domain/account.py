@@ -21,6 +21,7 @@ class AccountId:
     def empty(cls) -> "AccountId":
         return cls(value=None)
 
+    @property
     def is_empty(self) -> bool:
         return self.value is None
 
