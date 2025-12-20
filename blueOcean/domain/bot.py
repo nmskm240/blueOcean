@@ -116,11 +116,11 @@ class BacktestContext(BotContext):
 
 class IBotWorker(metaclass=ABCMeta):
     @abstractmethod
-    def start(self) -> None:
+    def launch(self) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def stop(self) -> None:
+    def shutdown(self) -> None:
         raise NotImplementedError()
 
 

@@ -23,8 +23,9 @@ class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
         super().__init__()
         self._run_directory: Path | None = None
 
-    def start(self):
-        self._register_signal_handlers()
+    def launch(self):
+        signal.signal(signal.SIGTERM, self._on_handle_sigterm)
+
         try:
             self._run()
         finally:
@@ -34,10 +35,7 @@ class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
     def _run(self) -> None:
         raise NotImplementedError()
 
-    def _register_signal_handlers(self) -> None:
-        signal.signal(signal.SIGTERM, self._handle_sigterm)
-
-    def _handle_sigterm(self, signum, frame):
+    def _on_handle_sigterm(self, signum, frame):
         self._on_sigterm()
         raise SystemExit()
 
@@ -68,15 +66,16 @@ class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
 
 
 class LiveTradeWorker(BotProcessWorker):
-    def __init__(self, context: LiveContext):
+    def __init__(self, id: BotId, context: LiveContext):
         super().__init__()
+        self._id = id
         self._context = context
 
         self.threads = []
         self.should_terminate = False
 
     def _run(self):
-        container = Injector([LiveTradeModule(self._context)])
+        container = Injector([LiveTradeModule(self._id, self._context)])
         self._run_directory = container.get(Path)
 
         fetcher = container.get(OhlcvFetcher)
@@ -95,7 +94,7 @@ class LiveTradeWorker(BotProcessWorker):
         cerebro = container.get(bt.Cerebro)
         cerebro.run(runonce=False)
 
-    def stop(self):
+    def shutdown(self):
         self.should_terminate = True
         for t in self.threads:
             t.join()
@@ -123,18 +122,19 @@ class LiveTradeWorker(BotProcessWorker):
 
 
 class BacktestWorker(BotProcessWorker):
-    def __init__(self, context: BacktestContext):
+    def __init__(self, id: BotId, context: BacktestContext):
         super().__init__()
+        self._id = id
         self._context = context
 
     def _run(self):
-        container = Injector([BacktestModule(self._context)])
+        container = Injector([BacktestModule(self._id, self._context)])
         self._run_directory = container.get(Path)
 
         cerebro = container.get(bt.Cerebro)
         cerebro.run(runonce=False)
 
-    def stop(self):
+    def shutdown(self):
         super().terminate()
 
 
@@ -144,8 +144,8 @@ class RecoverWorker(IBotWorker):
     def __init__(self, pid):
         self._process = psutil.Process(pid)
 
-    def start(self):
+    def launch(self):
         raise RuntimeError(f"{self.__class__.__name__} cannot be started")
 
-    def stop(self):
+    def shutdown(self):
         self._process.terminate()
