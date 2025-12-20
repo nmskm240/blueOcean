@@ -182,7 +182,12 @@ class BotRepository(IBotRepository):
         return bots
 
     def find_by_id(self, id: BotId) -> Bot:
-        bot_entity = BotEntity.get_by_id(id.value)
-        context_entity = BotContextEntity.get_by_id(id.value)
-
+        query = (
+            BotEntity
+            .select(BotEntity, BotContextEntity)
+            .join(BotContextEntity)
+            .where(BotEntity.id == id.value)
+        )
+        bot_entity = query.get()
+        context_entity = bot_entity.botcontextentity
         return to_domain(bot_entity, context_entity)
