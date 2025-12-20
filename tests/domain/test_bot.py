@@ -9,19 +9,7 @@ from blueOcean.domain.bot import (
     LiveContext,
 )
 from blueOcean.domain.ohlcv import Timeframe
-
-
-class DummyWorker:
-    def __init__(self, pid: int = 123):
-        self.pid = pid
-        self.started = False
-        self.stopped = False
-
-    def start(self) -> None:
-        self.started = True
-
-    def stop(self) -> None:
-        self.stopped = True
+from tests.dummy.workers import DummyWorker
 
 
 def _build_live_context() -> LiveContext:
