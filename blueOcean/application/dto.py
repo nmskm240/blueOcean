@@ -1,50 +1,60 @@
 from __future__ import annotations
 
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Type
 
 import backtrader as bt
 
-
-@dataclass
-class BotConfig:
-    account_id: str
-    symbol: str
-    compression: int
-    strategy_cls: Type[bt.Strategy]
-    strategy_args: dict[str, Any]
-
-    def to_metadata(self) -> dict[str, Any]:
-        return {
-            "run_type": "bot",
-            "symbol": self.symbol,
-            "compression": self.compression,
-            "account_id": self.account_id,
-        }
+from blueOcean.domain.account import AccountId
+from blueOcean.domain.bot import BacktestContext, LiveContext
+from blueOcean.domain.ohlcv import Timeframe
 
 
 @dataclass
-class BacktestConfig:
-    symbol: str
+class IBotConfig[TContext](metaclass=ABCMeta):
     source: str
-    compression: int
+    symbol: str
+    timeframe: Timeframe
     strategy_cls: Type[bt.Strategy]
     strategy_args: dict[str, Any]
+
+    @abstractmethod
+    def to_context(self) -> TContext:
+        raise NotImplementedError()
+
+
+@dataclass
+class LiveConfig(IBotConfig[LiveContext]):
+    account_id: str
+
+    def to_context(self):
+        return LiveContext(
+            strategy_cls=self.strategy_cls,
+            strategy_args=self.strategy_args,
+            source=self.source,
+            symbol=self.symbol,
+            timeframe=self.timeframe,
+            account_id=AccountId(self.account_id),
+        )
+
+
+@dataclass
+class BacktestConfig(IBotConfig[BacktestContext]):
     cash: int
     time_range: DatetimeRange
 
-    def to_metadata(self) -> dict[str, Any]:
-        return {
-            "run_type": "backtest",
-            "symbol": self.symbol,
-            "source": self.source,
-            "compression": self.compression,
-            "time_range": {
-                "start_at": self.time_range.start_at.isoformat(),
-                "end_at": self.time_range.end_at.isoformat(),
-            },
-        }
+    def to_context(self):
+        return BacktestContext(
+            strategy_cls=self.strategy_cls,
+            strategy_args=self.strategy_args,
+            source=self.source,
+            symbol=self.symbol,
+            timeframe=self.timeframe,
+            start_at=self.time_range.start_at,
+            end_at=self.time_range.end_at,
+        )
 
 
 @dataclass(frozen=True)

@@ -126,7 +126,7 @@ class IBotWorker(metaclass=ABCMeta):
 
 class IBotWorkerFactory(metaclass=ABCMeta):
     @abstractmethod
-    def create(self, context: BotContext) -> IBotWorker:
+    def create(self, id: BotId, context: BotContext) -> IBotWorker:
         raise NotImplementedError()
 
 
