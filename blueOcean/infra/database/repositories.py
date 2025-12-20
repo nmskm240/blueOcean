@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import duckdb
@@ -8,13 +9,10 @@ from injector import inject
 from peewee import SqliteDatabase
 
 from blueOcean.domain.account import Account, AccountId
-from blueOcean.domain.bot import BacktestContext, Bot, LiveContext
+from blueOcean.domain.bot import Bot, BotId, IBotRepository
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
-from blueOcean.infra.database.entities import (
-    AccountEntity,
-    BotBacktestEntity,
-    BotLiveEntity,
-)
+from blueOcean.infra.database.entities import AccountEntity, BotContextEntity, BotEntity
+from blueOcean.infra.database.mapper import to_domain, to_entity
 from blueOcean.infra.logging import logger
 
 
@@ -110,43 +108,81 @@ class AccountRepository:
     def __init__(self, connection: SqliteDatabase):
         self.con = connection
 
-    def get_by_id(self, account_id: AccountId) -> Account:
-        account_entity = AccountEntity.get(AccountEntity.id == account_id.value)
-        return account_entity.to_domain()
+    def find_by_id(self, account_id: AccountId) -> Account:
+        account_entity = AccountEntity.get_by_id(account_id.value)
+        return to_domain(account_entity)
 
-    def list(self) -> list[Account]:
-        return [entity.to_domain() for entity in AccountEntity.select()]
+    def get_all(self) -> list[Account]:
+        return [to_domain(entity) for entity in AccountEntity.select()]
 
     def save(self, account: Account) -> Account:
-        entity = AccountEntity.from_domain(account)
+        entity = to_entity(account)
 
-        entity.save(force_insert=account.id.is_empty)
-        return entity.to_domain()
+        data = entity.__data__.copy()
+        (
+            AccountEntity.insert(**data)
+            .on_conflict(
+                conflict_target=[AccountEntity.id],
+                update={
+                    AccountEntity.api_key: data["api_key"],
+                    AccountEntity.api_secret: data["api_secret"],
+                    AccountEntity.exchange_name: data["exchange_name"],
+                    AccountEntity.is_sandbox: data["is_sandbox"],
+                    AccountEntity.label: data["label"],
+                    AccountEntity.updated_at: datetime.now(),
+                },
+            )
+            .execute()
+        )
+        return account
 
     def delete_by_id(self, account_id: AccountId) -> None:
         AccountEntity.delete().where(AccountEntity.id == account_id.value).execute()
 
 
-class BotRepository:
+class BotRepository(IBotRepository):
     @inject
     def __init__(self, connection: SqliteDatabase):
-        self.con = connection
+        self._con = connection
 
-    def save(self, session: Bot) -> Bot:
-        if isinstance(session.context, LiveContext):
-            entity = BotLiveEntity.from_domain(session)
-        elif isinstance(session.context, BacktestContext):
-            entity = BotBacktestEntity.from_domain(session)
-        else:
-            raise ValueError("Unsupported BotContext")
+    def save(self, bot: Bot) -> Bot:
+        bot_entity, context_entity = to_entity(bot)
 
-        entity.save(force_insert=session.id.is_empty)
-        return entity.to_domain()
+        bot_data = bot_entity.__data__.copy()
+        (
+            BotEntity.insert(**bot_data)
+            .on_conflict(
+                conflict_target=[BotEntity.id],
+                update={
+                    BotEntity.status: bot_data["status"],
+                    BotEntity.pid: bot_data["pid"],
+                    BotEntity.label: bot_data["label"],
+                    BotEntity.started_at: bot_data["started_at"],
+                    BotEntity.finished_at: bot_data["finished_at"],
+                    BotEntity.updated_at: datetime.now(),
+                },
+            )
+            .execute()
+        )
+        context_data = context_entity.__data__.copy()
+        (
+            BotContextEntity.insert(**context_data)
+            .on_conflict_ignore()
+            .execute()
+        )
+        return bot
 
     def get_all(self) -> list[Bot]:
-        live_sessions = BotLiveEntity.select().order_by(BotLiveEntity.id)
-        backtest_sessions = BotBacktestEntity.select().order_by(BotBacktestEntity.id)
-        sessions: list[Bot] = []
-        sessions.extend([e.to_domain() for e in live_sessions])
-        sessions.extend([e.to_domain() for e in backtest_sessions])
-        return sessions
+        bots: list[Bot] = []
+        query = BotEntity.select(BotEntity, BotContextEntity).join(BotContextEntity)
+
+        for bot_entity in query:
+            context_entity = bot_entity.botcontextentity
+            bots.append(to_domain(bot_entity, context_entity))
+        return bots
+
+    def find_by_id(self, id: BotId) -> Bot:
+        bot_entity = BotEntity.get_by_id(id.value)
+        context_entity = BotContextEntity.get_by_id(id.value)
+
+        return to_domain(bot_entity, context_entity)
