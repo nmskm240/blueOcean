@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable, Type
+from typing import Any, Callable, Type
 
 import backtrader as bt
 import ccxt
@@ -72,6 +72,85 @@ class StrategyDropdown(ft.Dropdown):
                 ft.DropdownOption(key=name, text=name) for (name, _) in StrategyRegistry
             ],
         )
+
+
+class StrategyParamField(ft.Control):
+    def __init__(
+        self,
+        strategy: Type[bt.Strategy] | str,
+        *,
+        on_change: Callable[[dict[str, Any]], None] | None = None,
+    ):
+        super().__init__()
+        if isinstance(strategy, str):
+            self._strategy_name = strategy
+            self._strategy_cls = StrategyRegistry.resolve(strategy)
+        else:
+            self._strategy_cls = strategy
+            self._strategy_name = StrategyRegistry.name_of(strategy)
+        self._on_change = on_change
+        self._params = StrategyRegistry.params_of(self._strategy_cls)
+        self._fields: dict[str, ft.Control] = {}
+
+    def build(self) -> ft.Control:
+        controls: list[ft.Control] = []
+        self._fields = {}
+
+        for name, default in self._params:
+            control = self._build_field(name, default)
+            self._fields[name] = control
+            controls.append(control)
+
+        return ft.Column(controls, spacing=8)
+
+    def values(self) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for name, default in self._params:
+            control = self._fields.get(name)
+            result[name] = self._read_value(control, default)
+        return result
+
+    def _build_field(self, name: str, default: Any) -> ft.Control:
+        if isinstance(default, bool):
+            checkbox = ft.Checkbox(label=name, value=default)
+            checkbox.on_change = self._handle_change
+            return checkbox
+
+        keyboard_type = None
+        if isinstance(default, (int, float)):
+            keyboard_type = ft.KeyboardType.NUMBER
+
+        field = ft.TextField(
+            label=name,
+            value=str(default),
+            keyboard_type=keyboard_type,
+        )
+        field.on_change = self._handle_change
+        return field
+
+    def _read_value(self, control: ft.Control | None, default: Any) -> Any:
+        if control is None:
+            return default
+        if isinstance(control, ft.Checkbox):
+            return bool(control.value)
+        if isinstance(control, ft.TextField):
+            raw = control.value or ""
+            if isinstance(default, int):
+                try:
+                    return int(raw)
+                except ValueError:
+                    return default
+            if isinstance(default, float):
+                try:
+                    return float(raw)
+                except ValueError:
+                    return default
+            return raw
+        return default
+
+    def _handle_change(self, _: ft.ControlEvent) -> None:
+        if self._on_change is not None:
+            self._on_change(self.values())
 
 
 class ExchangeSymbolPicker(ft.Control):

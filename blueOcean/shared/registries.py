@@ -9,6 +9,8 @@ class _StrategyRegistryMeta(type):
 class StrategyRegistry(metaclass=_StrategyRegistryMeta):
     _name_to_cls: dict[str, Type] = {}
     _cls_to_name: dict[Type, str] = {}
+    _name_to_params: dict[str, list[tuple[str, object]]] = {}
+    _cls_to_params: dict[Type, list[tuple[str, object]]] = {}
 
     @classmethod
     def register(cls, name: str | None = None) -> Callable[[Type], Type]:
@@ -22,6 +24,9 @@ class StrategyRegistry(metaclass=_StrategyRegistryMeta):
 
             cls._name_to_cls[resolved_name] = strategy_cls
             cls._cls_to_name[strategy_cls] = resolved_name
+            params = cls._extract_params(strategy_cls)
+            cls._name_to_params[resolved_name] = params
+            cls._cls_to_params[strategy_cls] = params
             return strategy_cls
 
         return decorator
@@ -39,3 +44,29 @@ class StrategyRegistry(metaclass=_StrategyRegistryMeta):
             return cls._cls_to_name[strategy_cls]
         except KeyError:
             raise RuntimeError(f"Strategy class not registered: {strategy_cls}")
+
+    @classmethod
+    def params_of(cls, strategy: str | Type) -> list[tuple[str, object]]:
+        if isinstance(strategy, str):
+            try:
+                return cls._name_to_params[strategy]
+            except KeyError:
+                raise RuntimeError(f"Strategy not registered: {strategy}")
+        try:
+            return cls._cls_to_params[strategy]
+        except KeyError:
+            raise RuntimeError(f"Strategy class not registered: {strategy}")
+
+    @staticmethod
+    def _extract_params(strategy_cls: Type) -> list[tuple[str, object]]:
+        params = getattr(strategy_cls, "params", None)
+        if params is None:
+            return []
+        if hasattr(params, "_getkeys"):
+            return [(key, getattr(params, key)) for key in params._getkeys()]
+        if isinstance(params, (list, tuple)):
+            try:
+                return [(name, value) for name, value in params]
+            except ValueError:
+                return []
+        return []
