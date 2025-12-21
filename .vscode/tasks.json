@@ -2,13 +2,13 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "output notebooke to embed image markdown",
+            "label": "nbconvert: embed images + html tables",
             "type": "shell",
             "command": "jupyter",
             "args": [
                 "nbconvert",
                 "--to", "markdown",
-                "--execute", "--Exporter.preprocessors='[\"blueOcean.jupyter.preprocessor.MarkdownInlineFigurePreprocessor\"]'",
+                "--execute", "--Exporter.preprocessors='[\"blueOcean.presentation.jupyter.preprocessor.MarkdownInlineFigurePreprocessor\", \"blueOcean.presentation.jupyter.preprocessor.MarkdownHtmlTablePreprocessor\"]'",
                 "--output-dir", "notebooks/out",
                 "${file}"
             ]
