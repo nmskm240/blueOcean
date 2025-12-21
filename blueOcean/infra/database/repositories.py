@@ -9,8 +9,10 @@ from injector import inject
 from peewee import SqliteDatabase
 
 from blueOcean.domain.account import Account, AccountId
+from blueOcean.domain.bot import Bot, BotId, IBotRepository
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
-from blueOcean.infra.database.entities import AccountEntity, BotEntity
+from blueOcean.infra.database.entities import AccountEntity, BotContextEntity, BotEntity
+from blueOcean.infra.database.mapper import to_domain, to_entity
 from blueOcean.infra.logging import logger
 
 
@@ -106,61 +108,86 @@ class AccountRepository:
     def __init__(self, connection: SqliteDatabase):
         self.con = connection
 
-    def get_by_id(self, account_id: AccountId) -> Account:
-        account_entity = AccountEntity.get(AccountEntity.id == account_id.value)
-        return account_entity.to_domain()
+    def find_by_id(self, account_id: AccountId) -> Account:
+        account_entity = AccountEntity.get_by_id(account_id.value)
+        return to_domain(account_entity)
 
-    def list(self) -> list[Account]:
-        return [entity.to_domain() for entity in AccountEntity.select()]
+    def get_all(self) -> list[Account]:
+        return [to_domain(entity) for entity in AccountEntity.select()]
 
     def save(self, account: Account) -> Account:
-        if account.id.is_empty():
-            entity = AccountEntity.from_domain(account)
-        else:
-            entity = AccountEntity.get(AccountEntity.id == account.id.value)
-            entity.api_key = account.credential.key
-            entity.api_secret = account.credential.secret
-            entity.exchange_name = account.credential.exchange
-            entity.is_sandbox = account.credential.is_sandbox
-            entity.label = account.label
-            entity.save()
-        return entity.to_domain()
+        entity = to_entity(account)
+
+        data = entity.__data__.copy()
+        (
+            AccountEntity.insert(**data)
+            .on_conflict(
+                conflict_target=[AccountEntity.id],
+                update={
+                    AccountEntity.api_key: data["api_key"],
+                    AccountEntity.api_secret: data["api_secret"],
+                    AccountEntity.exchange_name: data["exchange_name"],
+                    AccountEntity.is_sandbox: data["is_sandbox"],
+                    AccountEntity.label: data["label"],
+                    AccountEntity.updated_at: datetime.now(),
+                },
+            )
+            .execute()
+        )
+        return account
 
     def delete_by_id(self, account_id: AccountId) -> None:
         AccountEntity.delete().where(AccountEntity.id == account_id.value).execute()
 
 
-class BotRepository:
-    STATUS_STOPPED = 0
-    STATUS_RUNNING = 1
-
+class BotRepository(IBotRepository):
     @inject
     def __init__(self, connection: SqliteDatabase):
-        self.con = connection
+        self._con = connection
 
-    def save(self, bot_id: str, pid: int, status: int) -> None:
-        now = datetime.now()
+    def save(self, bot: Bot) -> Bot:
+        bot_entity, context_entity = to_entity(bot)
+
+        bot_data = bot_entity.__data__.copy()
         (
-            BotEntity.update(
-                pid=pid,
-                status=status,
-                updated_at=now,
+            BotEntity.insert(**bot_data)
+            .on_conflict(
+                conflict_target=[BotEntity.id],
+                update={
+                    BotEntity.status: bot_data["status"],
+                    BotEntity.pid: bot_data["pid"],
+                    BotEntity.label: bot_data["label"],
+                    BotEntity.started_at: bot_data["started_at"],
+                    BotEntity.finished_at: bot_data["finished_at"],
+                    BotEntity.updated_at: datetime.now(),
+                },
             )
-            .where(BotEntity.id == bot_id)
             .execute()
         )
+        context_data = context_entity.__data__.copy()
+        (
+            BotContextEntity.insert(**context_data)
+            .on_conflict_ignore()
+            .execute()
+        )
+        return bot
 
-    def update(
-        self,
-        bot_id: str,
-        *,
-        pid: int | None = None,
-        status: int | None = None,
-    ) -> None:
-        values: dict[str, object] = {"updated_at": datetime.now()}
-        if pid is not None:
-            values["pid"] = pid
-        if status is not None:
-            values["status"] = status
+    def get_all(self) -> list[Bot]:
+        bots: list[Bot] = []
+        query = BotEntity.select(BotEntity, BotContextEntity).join(BotContextEntity)
 
-        (BotEntity.update(**values).where(BotEntity.id == bot_id).execute())
+        for bot_entity in query:
+            context_entity = bot_entity.botcontextentity
+            bots.append(to_domain(bot_entity, context_entity))
+        return bots
+
+    def find_by_id(self, id: BotId) -> Bot:
+        query = (
+            BotEntity
+            .select(BotEntity, BotContextEntity)
+            .join(BotContextEntity)
+            .where(BotEntity.id == id.value)
+        )
+        bot_entity = query.get()
+        context_entity = bot_entity.botcontextentity
+        return to_domain(bot_entity, context_entity)

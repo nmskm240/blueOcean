@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from cuid2 import Cuid
+
 
 @dataclass
 class Account:
@@ -15,14 +17,11 @@ class Account:
 
 @dataclass(frozen=True)
 class AccountId:
-    value: str | None
+    value: str
 
     @classmethod
-    def empty(cls) -> "AccountId":
-        return cls(value=None)
-
-    def is_empty(self) -> bool:
-        return self.value is None
+    def create(cls) -> AccountId:
+        return cls(Cuid().generate())
 
 
 @dataclass(frozen=True)

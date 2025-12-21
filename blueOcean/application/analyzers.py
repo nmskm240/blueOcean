@@ -1,15 +1,15 @@
 from pathlib import Path
-
 import backtrader as bt
-
-from blueOcean.application.services import ReportService
 
 
 class StreamingAnalyzer(bt.Analyzer):
-    params = dict(analyzers=None, path="metrics.csv", report_service=None)
+    params = dict(
+        analyzers=None,
+        path=None,
+    )
 
     def start(self):
-        self.file = open(self.p.path, "a", buffering=1)
+        self.file = open(self.p.path.joinPath("metrics.csv"), "a", buffering=1)
         self.file.write("timestamp,analyzer,key,value\n")
 
     def next(self):
@@ -43,6 +43,3 @@ class StreamingAnalyzer(bt.Analyzer):
 
     def stop(self):
         self.file.close()
-
-        service: ReportService = self.p.report_service
-        service.create_report()

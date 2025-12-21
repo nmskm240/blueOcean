@@ -1,20 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from injector import Injector
 
 from blueOcean.application.di import (
     AppDatabaseModule,
-    BacktestModule,
+    BotRuntimeModule,
     FetcherModule,
-    RealTradeModule,
 )
-from blueOcean.application.dto import BacktestConfig, BotConfig
-from blueOcean.application.services import WorkerService
+from blueOcean.application.dto import IBotConfig
+from blueOcean.application.services import BotExecutionService
 from blueOcean.domain.account import Account, AccountId, ApiCredential
+from blueOcean.domain.bot import BotId, BotRunMode
 from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher
-from blueOcean.infra.database.repositories import AccountRepository
+from blueOcean.infra.database.repositories import AccountRepository, BotRepository
 
 
 def fetch_ohlcv(source: str, symbol: str):
@@ -28,26 +26,14 @@ def fetch_ohlcv(source: str, symbol: str):
         repository.save(batch, source, symbol)
 
 
-def run_bot(config, bot_id: str | None = None):
-    if isinstance(config, BacktestConfig):
-        container = Injector([BacktestModule(config)])
-        worker_service = container.get(WorkerService)
-        worker = worker_service.spawn_backtest(config)
-        return worker
-
-    elif isinstance(config, BotConfig):
-        if bot_id is None:
-            raise ValueError("bot_id is required for real trade bot")
-        container = Injector([RealTradeModule(config)])
-        worker_service = container.get(WorkerService)
-        worker = worker_service.spawn_real_trade(bot_id, config)
-        return worker
-
-    else:
-        raise TypeError(f"Unsupported config: {type(config)}")
+def run_bot(config: IBotConfig):
+    context = config.to_context()
+    container = Injector([BotRuntimeModule()])
+    service = container.get(BotExecutionService)
+    service.start(context)
 
 
-def export_report(metrics_path: Path) -> None:
+def export_report(bot_id: BotId) -> None:
     # TODO: 本番稼働の異常終了用のレポート作成処理
     raise NotImplementedError()
 
@@ -80,7 +66,7 @@ def register_api_credential(
 def list_api_credentials():
     container = Injector([AppDatabaseModule()])
     repository = container.get(AccountRepository)
-    return repository.list()
+    return repository.get_all()
 
 
 def update_api_credential(
@@ -112,3 +98,29 @@ def delete_api_credential(account_id: str) -> None:
     container = Injector([AppDatabaseModule()])
     repository = container.get(AccountRepository)
     repository.delete_by_id(AccountId(account_id))
+
+
+def list_bots():
+    container = Injector([AppDatabaseModule()])
+    repository = container.get(BotRepository)
+    bots = repository.get_all()
+    records = []
+    for bot in bots:
+        if bot.mode is not BotRunMode.LIVE:
+            continue
+        records.append(
+            {
+                "id": bot.id.value,
+                "label": bot.label or bot.context.strategy_cls,
+                "status": int(bot.status),
+                "strategy_name": bot.context.strategy_cls,
+                "account_id": (
+                    bot.context.account_id.value
+                    if bot.context.account_id is not None
+                    else ""
+                ),
+                "created_at": bot.started_at,
+                "updated_at": bot.finished_at or bot.started_at,
+            }
+        )
+    return records
