@@ -1,6 +1,7 @@
 import multiprocessing
 import flet as ft
 
+import blueOcean.core.strategies
 from blueOcean.presentation.flet import run
 
 if __name__ == "__main__":

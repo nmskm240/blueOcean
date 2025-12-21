@@ -1,6 +1,7 @@
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Type
 
+import backtrader as bt
 import ccxt
 import flet as ft
 
@@ -8,6 +9,7 @@ from blueOcean.application.accessors import IExchangeSymbolAccessor
 from blueOcean.infra.accessors import ExchangeSymbolDirectoryAccessor
 from blueOcean.domain.account import Account
 from blueOcean.domain.ohlcv import Timeframe
+from blueOcean.shared.registries import StrategyRegistry
 
 
 class TimeframeDropdown(ft.Dropdown):
@@ -58,6 +60,17 @@ class AccountistTile(ft.ListTile):
                 else ft.Icons.MONEY
             ),
             on_click=on_click,
+        )
+
+
+class StrategyDropdown(ft.Dropdown):
+    def __init__(self, value: Type[bt.Strategy] | None = None):
+        selected_name = StrategyRegistry.name_of(value) if value else None
+        super().__init__(
+            value=selected_name,
+            options=[
+                ft.DropdownOption(key=name, text=name) for (name, _) in StrategyRegistry
+            ],
         )
 
 

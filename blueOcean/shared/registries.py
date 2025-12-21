@@ -1,7 +1,12 @@
-from typing import Type, Callable
+from typing import Callable, Iterator, Type
 
 
-class StrategyRegistry:
+class _StrategyRegistryMeta(type):
+    def __iter__(cls) -> Iterator[tuple[str, Type]]:
+        return iter(cls._name_to_cls.items())
+
+
+class StrategyRegistry(metaclass=_StrategyRegistryMeta):
     _name_to_cls: dict[str, Type] = {}
     _cls_to_name: dict[Type, str] = {}
 
