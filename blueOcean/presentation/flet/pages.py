@@ -51,7 +51,22 @@ class BotPage(IPage, RootLayout.IRootNavigationItem):
             controls=[
                 RootLayout(
                     index=cls.order,
-                    content=ft.Text("Bot"),
+                    content=ft.Row(
+                        controls=[
+                            ft.PopupMenuButton(
+                                content=ft.Row(
+                                    controls=[
+                                        ft.Icon(ft.Icons.ADD),
+                                        ft.Text(value="New"),
+                                    ],
+                                ),
+                                items=[
+                                    ft.PopupMenuItem(text="Backtest"),
+                                    ft.PopupMenuItem(text="Live bot"),
+                                ],
+                            )
+                        ]
+                    ),
                 ),
             ],
         )

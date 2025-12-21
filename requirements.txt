@@ -19,6 +19,7 @@ nbformat>=4.2.0
 nbconvert
 ipykernel
 flet
+flet-route
 quantstats
 
 logging
