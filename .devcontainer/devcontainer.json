@@ -4,7 +4,7 @@
 		"compose.yaml"
 	],
 	"forwardPorts": [
-		8501, // streamlit
+		8501, // flet
 	],
 	"features": {
 		"ghcr.io/warrenbuckley/codespace-features/sqlite": "1"

@@ -18,7 +18,7 @@ backtrader_plotting
 nbformat>=4.2.0
 nbconvert
 ipykernel
-streamlit
+flet
 quantstats
 
 logging

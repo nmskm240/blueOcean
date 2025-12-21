@@ -2,15 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Streamlit",
+            "name": "Flet",
             "type": "debugpy",
             "request": "launch",
-            "module": "streamlit",
+            "module": "flet.cli",
             "args": [
                 "run",
                 "app.py",
-                "--server.address",
-                "0.0.0.0"
+                "--web",
+                "--port",
+                "8501"
             ],
             "console": "integratedTerminal"
         }
