@@ -4,6 +4,7 @@ import flet as ft
 from flet_route import Basket, Params
 
 from blueOcean.presentation.flet.layout import RootLayout
+from blueOcean.presentation.flet.widgets import BacktestDialog
 
 
 class IPage(metaclass=ABCMeta):
@@ -46,25 +47,36 @@ class BotPage(IPage, RootLayout.IRootNavigationItem):
 
     @classmethod
     def render(cls, page: ft.Page, params: Params, basket: Basket) -> ft.View:
+        backtest_dialog = BacktestDialog()
+
+        def _open_backtest(e: ft.ControlEvent) -> None:
+            e.control.page.overlay.append(backtest_dialog)
+            backtest_dialog.open = True
+            e.control.page.update()
+
         return ft.View(
             cls.route,
+            floating_action_button=ft.FloatingActionButton(
+                icon=ft.Icon(ft.Icons.ADD),
+                content=ft.PopupMenuButton(
+                    expand=True,
+                    items=[
+                        ft.PopupMenuItem(
+                            text="Backtest",
+                            on_click=_open_backtest,
+                        ),
+                        ft.PopupMenuItem(
+                            text="Live bot",
+                        ),
+                    ],
+                ),
+            ),
             controls=[
                 RootLayout(
                     index=cls.order,
                     content=ft.Row(
                         controls=[
-                            ft.PopupMenuButton(
-                                content=ft.Row(
-                                    controls=[
-                                        ft.Icon(ft.Icons.ADD),
-                                        ft.Text(value="New"),
-                                    ],
-                                ),
-                                items=[
-                                    ft.PopupMenuItem(text="Backtest"),
-                                    ft.PopupMenuItem(text="Live bot"),
-                                ],
-                            )
+                            ft.Markdown("# Bots"),
                         ]
                     ),
                 ),

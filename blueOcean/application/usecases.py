@@ -5,7 +5,6 @@ from injector import Injector
 from blueOcean.application.di import (
     AppDatabaseModule,
     BotRuntimeModule,
-    FetcherModule,
 )
 from blueOcean.application.dto import IBotConfig
 from blueOcean.application.services import BotExecutionService
