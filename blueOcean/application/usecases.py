@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from injector import Injector
+import ccxt
+from injector import Injector, inject
 
-from blueOcean.application.di import (
-    AppDatabaseModule,
-    BotRuntimeModule,
-)
-from blueOcean.application.dto import IBotConfig
+from blueOcean.application.di import AppDatabaseModule, BotRuntimeModule, ExchangeModule
+from blueOcean.application.dto import AccountCredentialInfo, IBotConfig, LiveConfig
+from blueOcean.application.mapper import to_account
 from blueOcean.application.services import BotExecutionService
 from blueOcean.domain.account import Account, AccountId, ApiCredential
 from blueOcean.domain.bot import BotId, BotRunMode
@@ -35,37 +34,6 @@ def run_bot(config: IBotConfig):
 def export_report(bot_id: BotId) -> None:
     # TODO: 本番稼働の異常終了用のレポート作成処理
     raise NotImplementedError()
-
-
-def register_api_credential(
-    exchange: str,
-    api_key: str,
-    api_secret: str,
-    is_sandbox: bool,
-    label: str,
-) -> str:
-    container = Injector([AppDatabaseModule()])
-    repository = container.get(AccountRepository)
-
-    account = Account(
-        id=AccountId.empty(),
-        credential=ApiCredential(
-            exchange=exchange,
-            key=api_key,
-            secret=api_secret,
-            is_sandbox=is_sandbox,
-        ),
-        label=label,
-    )
-
-    saved = repository.save(account)
-    return saved.id.value or ""
-
-
-def list_api_credentials():
-    container = Injector([AppDatabaseModule()])
-    repository = container.get(AccountRepository)
-    return repository.get_all()
 
 
 def update_api_credential(
@@ -123,3 +91,34 @@ def list_bots():
             }
         )
     return records
+
+
+class RegistAccountUsecase:
+    @inject
+    def __init__(self, repository: AccountRepository):
+        self._repository = repository
+
+    def execute(self, request: AccountCredentialInfo) -> AccountId:
+        account = to_account(request)
+
+        saved = self._repository.save(account)
+        return saved.id
+
+
+class FetchAccountsUsecase:
+    @inject
+    def __init__(self, repository: AccountRepository):
+        self._repository = repository
+
+    def execute(self):
+        accounts = self._repository.get_all()
+        return [
+            AccountCredentialInfo(
+                account_id=account.id.value,
+                exchange_name=account.credential.exchange,
+                api_key=account.credential.key,
+                api_secret=account.credential.secret,
+                is_sandbox=account.credential.is_sandbox,
+            )
+            for account in accounts
+        ]

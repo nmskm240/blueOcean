@@ -9,10 +9,10 @@ import ccxt
 import flet as ft
 
 from blueOcean.application.accessors import IExchangeSymbolAccessor
-from blueOcean.application.notifiers import BacktestNotifier
-from blueOcean.domain.account import Account
+from blueOcean.application.dto import AccountCredentialInfo
 from blueOcean.domain.ohlcv import Timeframe
 from blueOcean.infra.accessors import ExchangeSymbolDirectoryAccessor
+from blueOcean.presentation.scopes import AccountCredentialDialogScope, Scope
 from blueOcean.shared.registries import StrategyRegistry
 
 # region Dropdown
@@ -51,27 +51,6 @@ class SymbolDropdown(ft.Dropdown):
         )
 
 
-class AccountistTile(ft.ListTile):
-    def __init__(
-        self,
-        account: Account,
-        on_click: ft.OptionalControlEventCallable,
-    ):
-        title = account.label or account.credential.exchange
-        subtitle = account.credential.exchange if account.label else None
-
-        super().__init__(
-            title=ft.Text(title),
-            subtitle=ft.Text(subtitle) if subtitle else None,
-            leading=ft.Icon(
-                ft.Icons.DEVELOPER_MODE
-                if account.credential.is_sandbox
-                else ft.Icons.MONEY
-            ),
-            on_click=on_click,
-        )
-
-
 class StrategyDropdown(ft.Dropdown):
     def __init__(self, value: Type[bt.Strategy] | None = None):
         selected_name = StrategyRegistry.name_of(value) if value else None
@@ -81,6 +60,30 @@ class StrategyDropdown(ft.Dropdown):
             options=[
                 ft.DropdownOption(key=name, text=name) for (name, _) in StrategyRegistry
             ],
+        )
+
+
+# region ListTile
+
+
+class AccountListTile(ft.ListTile):
+    def __init__(
+        self,
+        info: AccountCredentialInfo,
+        on_click: ft.OptionalControlEventCallable = None,
+    ):
+        title = info.label or info.exchange_name
+        subtitle = info.exchange_name if info.label else None
+
+        super().__init__(
+            title=ft.Text(title),
+            subtitle=ft.Text(subtitle) if subtitle else None,
+            leading=ft.Icon(
+                ft.Icons.DEVELOPER_MODE
+                if info.is_sandbox
+                else ft.Icons.MONEY
+            ),
+            on_click=on_click,
         )
 
 
@@ -283,50 +286,41 @@ class FetcherSettingDialog(ft.AlertDialog):
         self.open = False
         self.update()
 
-
-class ApiCredentialDialog(ft.AlertDialog):
+class AccountCredentialDialog(ft.AlertDialog):
     def __init__(
         self,
-        *,
-        exchange_options: list[str] | None = None,
-        default_exchange: str | None = None,
-        default_label: str | None = None,
-        default_key: str | None = None,
-        default_secret: str | None = None,
-        default_is_sandbox: bool = False,
-        on_submit: Callable[[str, str, str, str, bool], None] | None = None,
+        scope: Scope,
+        on_submit: Callable[[str], None] | None = None,
         on_cancel: Callable[[], None] | None = None,
     ):
         super().__init__(modal=True)
+        self._scope = AccountCredentialDialogScope(scope)
+        self._notifier = self._scope.notifier
         self._on_submit = on_submit
         self._on_cancel = on_cancel
-        exchanges = exchange_options or list(ccxt.exchanges)
-        initial_exchange = default_exchange if default_exchange in exchanges else None
 
+        self.label_field = ft.TextField(label="label")
         self.exchange_dropdown = ft.Dropdown(
             label="exchange",
-            value=initial_exchange or (exchanges[0] if exchanges else None),
-            options=[ft.DropdownOption(key=e, text=e) for e in exchanges],
-            autofocus=True,
+            options=[ft.DropdownOption(key=e, text=e) for e in ccxt.exchanges],
         )
-        self.label_field = ft.TextField(label="label", value=default_label or "")
-        self.key_field = ft.TextField(label="api key", value=default_key or "")
+        self.key_field = ft.TextField(label="api key")
         self.secret_field = ft.TextField(
             label="api secret",
-            value=default_secret or "",
             password=True,
             can_reveal_password=True,
         )
-        self.sandbox_switch = ft.Switch(label="sandbox", value=default_is_sandbox)
+        self.sandbox_switch = ft.Switch(label="is sandbox")
         self.actions = [
             ft.TextButton("キャンセル", on_click=self._handle_cancel),
             ft.ElevatedButton("保存", on_click=self._handle_submit),
         ]
         self.content = ft.Column(
             controls=[
-                ft.Text("API設定", weight=ft.FontWeight.BOLD, size=16),
+                ft.Text("API設定", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
                 ft.Text(
-                    "取引所APIの認証情報を入力してください。", color=ft.colors.GREY_700
+                    "取引所APIの認証情報を入力してください。",
+                    theme_style=ft.TextThemeStyle.BODY_MEDIUM,
                 ),
                 self.exchange_dropdown,
                 self.label_field,
@@ -335,19 +329,19 @@ class ApiCredentialDialog(ft.AlertDialog):
                 self.sandbox_switch,
             ],
             tight=True,
-            width=420,
-            spacing=12,
         )
 
     def _handle_submit(self, _: ft.ControlEvent) -> None:
+        self._notifier.update(
+            exchange_name=self.exchange_dropdown.value,
+            label=self.label_field.value,
+            api_key=self.key_field.value,
+            api_secret=self.secret_field.value,
+            is_sandbox=self.sandbox_switch.value,
+        )
+        res = self._notifier.submit()
         if self._on_submit is not None:
-            self._on_submit(
-                self.exchange_dropdown.value or "",
-                self.label_field.value or "",
-                self.key_field.value or "",
-                self.secret_field.value or "",
-                bool(self.sandbox_switch.value),
-            )
+            self._on_submit(res)
         self.open = False
         self.update()
 

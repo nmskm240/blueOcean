@@ -64,3 +64,13 @@ class BacktestConfig(IBotConfig[BacktestContext]):
             start_at=self.time_range.start_at,
             end_at=self.time_range.end_at,
         )
+
+
+@dataclass(frozen=True)
+class AccountCredentialInfo:
+    account_id: str = field(default="")
+    exchange_name: str = field(default="")
+    api_key: str = field(default="")
+    api_secret: str = field(default="")
+    is_sandbox: bool = field(default=True)
+    label: str = field(default="")

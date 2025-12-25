@@ -4,7 +4,12 @@ import flet as ft
 from flet_route import Basket, Params
 
 from blueOcean.presentation.flet.layout import RootLayout
-from blueOcean.presentation.flet.widgets import BacktestDialog
+from blueOcean.presentation.flet.widgets import (
+    AccountCredentialDialog,
+    AccountListTile,
+    BacktestDialog,
+)
+from blueOcean.presentation.scopes import AccountPageScope, Scope
 
 
 class IPage(metaclass=ABCMeta):
@@ -92,17 +97,49 @@ class AccountPage(IPage, RootLayout.IRootNavigationItem):
         label="Accounts",
     )
 
-    @classmethod
-    def render(cls, page: ft.Page, params: Params, basket: Basket) -> ft.View:
+    def __init__(self, scope: Scope):
+        self._scope = AccountPageScope(scope)
+        self._notifier = self._scope.notifier
+
+    def render(self, page: ft.Page, params: Params, basket: Basket) -> ft.View:
         return ft.View(
-            cls.route,
+            self.route,
             controls=[
                 RootLayout(
-                    index=cls.order,
-                    content=ft.Text("Account"),
+                    index=self.order,
+                    content=ft.Column(
+                        controls=[
+                            ft.Text(
+                                "アカウント",
+                                theme_style=ft.TextThemeStyle.HEADLINE_LARGE,
+                            ),
+                            ft.ElevatedButton(
+                                "登録",
+                                icon=ft.Icons.ADD,
+                                on_click=self._open_regist_dialog,
+                            ),
+                            ft.Divider(height=1),
+                            ft.ListView(
+                                controls=[
+                                    AccountListTile(info)
+                                    for info in self._notifier.state
+                                ]
+                            ),
+                        ]
+                    ),
                 ),
             ],
         )
+
+    def _open_regist_dialog(self, e: ft.ControlEvent) -> None:
+        def on_submit():
+            self._notifier.update()
+            e.control.page.update()
+
+        dialog = AccountCredentialDialog(self._scope, on_submit=lambda _: on_submit)
+        e.control.page.overlay.append(dialog)
+        dialog.open = True
+        e.control.page.update()
 
 
 class StrategiesPage(IPage, RootLayout.IRootNavigationItem):
