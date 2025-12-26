@@ -14,6 +14,7 @@ from blueOcean.application.broker import Broker
 from blueOcean.application.feed import LocalDataFeed, QueueDataFeed
 from blueOcean.application.services import BotWorkerFactory
 from blueOcean.application.store import IStore
+from blueOcean.application.warmup import WarmupState
 from blueOcean.domain.account import ApiCredential
 from blueOcean.domain.bot import (
     BacktestContext,
@@ -113,8 +114,8 @@ class LiveTradeModule(Module):
 
         binder.bind(IStore, to=CcxtSpotStore)
         binder.bind(Queue, to=Queue, scope=singleton)
-        binder.bind(bt.feed.DataBase, to=QueueDataFeed)
         binder.bind(bt.broker.BrokerBase, to=Broker)
+        binder.bind(WarmupState, to=WarmupState, scope=singleton)
 
         binder.bind(
             IBotRuntimeDirectoryAccessor,
@@ -144,6 +145,22 @@ class LiveTradeModule(Module):
         )
         cerebro.addstrategy(self.context.strategy_cls, **self.context.strategy_args)
         return cerebro
+
+    @provider
+    def feed(
+        self,
+        queue: Queue,
+        fetcher: OhlcvFetcher,
+        warmup_state: WarmupState,
+    ) -> bt.feed.DataBase:
+        return QueueDataFeed(
+            queue=queue,
+            fetcher=fetcher,
+            symbol=self.context.symbol,
+            ohlcv_timeframe=self.context.timeframe,
+            warmup_state=warmup_state,
+            warmup_limit=1000,
+        )
 
 
 class BacktestModule(Module):
