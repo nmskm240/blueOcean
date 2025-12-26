@@ -5,13 +5,18 @@ from backtrader.order import BuyOrder, Order, SellOrder
 from backtrader.position import Position
 
 from blueOcean.application.store import IStore
+from blueOcean.application.warmup import WarmupState
 from blueOcean.infra.logging import logger
 
 
 class Broker(BrokerBase):
-    def __init__(self, store: IStore):
+    def __init__(self, store: IStore, warmup_state: WarmupState | None = None):
         super().__init__()
         self._store = store
+        if warmup_state is None:
+            warmup_state = WarmupState()
+            warmup_state.mark_ready()
+        self._warmup_state = warmup_state
         self.notifs = collections.deque()
         self.startingcash = self.cash = 0.0
         self.startingvalue = self.value = 0.0
@@ -37,6 +42,12 @@ class Broker(BrokerBase):
         self.orders[order.ref] = order
         order.submit()
         self.notify(order)
+
+        if not self._warmup_state.is_ready():
+            logger.info("Warmup中のため注文は拒否されました。")
+            order.reject()
+            self.notify(order)
+            return order
 
         self._store.create_order(order)
         order.accept()
