@@ -1,7 +1,7 @@
-from abc import ABCMeta, abstractmethod
 import signal
 import threading
 import time
+from abc import ABCMeta, abstractmethod
 from datetime import UTC, datetime, timedelta
 from multiprocessing import Process
 from pathlib import Path
@@ -13,7 +13,7 @@ import psutil
 import quantstats as qs
 from injector import Injector
 
-from blueOcean.application.di import BacktestModule, LiveTradeModule
+from blueOcean.application.di import BacktestRuntimeModule, LiveTradeRuntimeModule
 from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.domain.bot import BacktestContext, BotId, IBotWorker, LiveContext
 from blueOcean.domain.ohlcv import OhlcvFetcher
@@ -76,7 +76,7 @@ class LiveTradeWorker(BotProcessWorker):
         self.should_terminate = False
 
     def _run(self):
-        container = Injector([LiveTradeModule(self._id, self._context)])
+        container = Injector([LiveTradeRuntimeModule(self._id, self._context)])
         self._run_directory = container.get(Path)
 
         fetcher_factory = container.get(IOhlcvFetcherFactory)
@@ -130,7 +130,7 @@ class BacktestWorker(BotProcessWorker):
         self._context = context
 
     def _run(self):
-        container = Injector([BacktestModule(self._id, self._context)])
+        container = Injector([BacktestRuntimeModule(self._id, self._context)])
         self._run_directory = container.get(Path)
 
         cerebro = container.get(bt.Cerebro)

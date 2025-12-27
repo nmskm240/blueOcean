@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+from abc import ABCMeta, abstractmethod
+
 import ccxt
 from injector import inject
 
-from blueOcean.domain.bot import (
-    Bot,
-    BotContext,
-    BotId,
-    BotRunMode,
-    IBotRepository,
-    IBotWorkerFactory,
-)
+from blueOcean.application.accessors import IExchangeSymbolAccessor
+from blueOcean.domain.bot import (Bot, BotContext, BotId, BotRunMode,
+                                  IBotRepository, IBotWorkerFactory)
 from blueOcean.domain.ohlcv import IOhlcvRepository
 from blueOcean.infra.database.repositories import AccountRepository
+
+
+class IExchangeService(metaclass=ABCMeta):
+    @abstractmethod
+    def fetchable_exchanges(self) -> list[str]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def symbols_for(self, exchange_name: str) -> list[str]:
+        raise NotImplementedError()
 
 
 class BotWorkerFactory(IBotWorkerFactory):
@@ -61,7 +68,7 @@ class BotExecutionService:
         self._bot_repository.save(bot)
 
 
-class ExchangeService:
+class CcxtExchangeService(IExchangeService):
     @inject
     def __init__(
         self,
@@ -101,3 +108,15 @@ class ExchangeService:
         exchange = exchange_cls()
         markets = exchange.load_markets()
         return sorted(markets.keys())
+
+
+class BacktestExchangeService(IExchangeService):
+    @inject
+    def __init__(self, accessor: IExchangeSymbolAccessor):
+        self._accessor = accessor
+
+    def fetchable_exchanges(self) -> list[str]:
+        return sorted(self._accessor.exchanges)
+
+    def symbols_for(self, exchange_name: str) -> list[str]:
+        return sorted(self._accessor.symbols(exchange_name))

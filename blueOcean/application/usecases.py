@@ -5,7 +5,7 @@ from injector import inject
 from blueOcean.application.dto import AccountCredentialInfo, IBotConfig
 from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.application.mapper import to_account
-from blueOcean.application.services import BotExecutionService, ExchangeService
+from blueOcean.application.services import BotExecutionService, IExchangeService
 from blueOcean.domain.account import AccountId
 from blueOcean.domain.bot import BotId
 from blueOcean.domain.ohlcv import IOhlcvRepository
@@ -38,7 +38,7 @@ class FetchOhlcvUsecase:
 
 class FetchExchangeSymbolsUsecase:
     @inject
-    def __init__(self, exchange_service: ExchangeService):
+    def __init__(self, exchange_service: IExchangeService):
         self._service = exchange_service
 
     def execute(self, exchange_name: str) -> list[str]:
@@ -47,7 +47,7 @@ class FetchExchangeSymbolsUsecase:
 
 class FetchFetchableExchangesUsecase:
     @inject
-    def __init__(self, exchange_service: ExchangeService):
+    def __init__(self, exchange_service: IExchangeService):
         self._service = exchange_service
 
     def execute(self) -> list[str]:

@@ -12,7 +12,12 @@ class IBotRuntimeDirectoryAccessor(metaclass=ABCMeta):
         raise NotImplementedError()
 
 
-class IExchangeSymbolAccessor(metaclass=ABCMeta):
+class IExchangeSymbolAccessor(metaclass=ABCMeta):    
+    @property
     @abstractmethod
-    def list_exchange_symbols(self) -> dict[str, list[str]]:
+    def exchanges(self) -> list[str]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def symbols_for(self, echange_name: str) -> list[str]:
         raise NotImplementedError()
