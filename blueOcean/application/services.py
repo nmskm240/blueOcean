@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ccxt
 from injector import inject
 
 from blueOcean.domain.bot import (
@@ -10,6 +11,8 @@ from blueOcean.domain.bot import (
     IBotRepository,
     IBotWorkerFactory,
 )
+from blueOcean.domain.ohlcv import IOhlcvRepository
+from blueOcean.infra.database.repositories import AccountRepository
 
 
 class BotWorkerFactory(IBotWorkerFactory):
@@ -56,3 +59,45 @@ class BotExecutionService:
         bot.attach(worker)
         bot.shutdown()
         self._bot_repository.save(bot)
+
+
+class ExchangeService:
+    @inject
+    def __init__(
+        self,
+        account_repository: AccountRepository,
+        ohlcv_repository: IOhlcvRepository,
+    ):
+        self._account_repository = account_repository
+        self._ohlcv_repository = ohlcv_repository
+
+    def fetchable_exchanges(self) -> list[str]:
+        supported: list[str] = []
+        for account in self._account_repository.get_all():
+            credential = account.credential
+            if not credential.key or not credential.secret:
+                continue
+            name = credential.exchange
+            if name in supported:
+                continue
+            exchange_cls = getattr(ccxt, name, None)
+            if exchange_cls is None:
+                continue
+            exchange = exchange_cls(
+                {
+                    "apiKey": credential.key,
+                    "secret": credential.secret,
+                }
+            )
+            exchange.set_sandbox_mode(credential.is_sandbox)
+            if exchange.has.get("fetchOHLCV"):
+                supported.append(name)
+        return supported
+
+    def symbols_for(self, exchange_name: str) -> list[str]:
+        exchange_cls = getattr(ccxt, exchange_name, None)
+        if exchange_cls is None:
+            return []
+        exchange = exchange_cls()
+        markets = exchange.load_markets()
+        return sorted(markets.keys())

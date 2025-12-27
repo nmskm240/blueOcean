@@ -3,10 +3,11 @@ from flet_route import Routing, path
 
 from blueOcean.presentation.flet.pages import (
     AccountPage,
-    BotPage,
+    BotTopPage,
     HomePage,
     StrategiesPage,
 )
+from blueOcean.presentation.flet.widgets import RootAppBar
 from blueOcean.presentation.scopes import AppScope
 
 
@@ -14,7 +15,7 @@ def run(page: ft.Page):
     app_scope = AppScope()
     routes = [
         path(HomePage.route, clear=True, view=HomePage.render),
-        path(BotPage.route, clear=True, view=BotPage.render),
+        path(BotTopPage.route, clear=True, view=BotTopPage.render),
         path(
             AccountPage.route,
             clear=True,
@@ -27,7 +28,7 @@ def run(page: ft.Page):
     Routing(
         page=page,
         app_routes=routes,
-        appbar=ft.AppBar(),
+        appbar=RootAppBar(app_scope),
     )
     page.scroll = ft.ScrollMode.AUTO
     page.go(page.route)

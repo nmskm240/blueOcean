@@ -1,10 +1,12 @@
 from abc import ABCMeta
+
 from injector import Injector
 
-from blueOcean.application.di import AppDatabaseModule, HistoricalDataModule
+from blueOcean.application.di import AppModule
 from blueOcean.presentation.notifiers import (
     AccountCredentialDialogNotifier,
     AccountPageNotifier,
+    OhlcvFetchDialogNotifier,
 )
 
 
@@ -18,8 +20,7 @@ class AppScope(Scope):
         super().__init__(
             Injector(
                 [
-                    AppDatabaseModule(),
-                    HistoricalDataModule(),
+                    AppModule(),
                 ]
             )
         )
@@ -34,6 +35,11 @@ class AccountPageScope(Scope):
         return self._injector.get(AccountPageNotifier)
 
 
+class BotTopPageScope(Scope):
+    def __init__(self, parent: Scope):
+        super().__init__(Injector([], parent=parent._injector))
+
+
 class AccountCredentialDialogScope(Scope):
     def __init__(self, parent: Scope):
         super().__init__(Injector([], parent=parent._injector))
@@ -41,3 +47,12 @@ class AccountCredentialDialogScope(Scope):
     @property
     def notifier(self) -> AccountCredentialDialogNotifier:
         return self._injector.get(AccountCredentialDialogNotifier)
+
+
+class OhlcvFetchDialogScope(Scope):
+    def __init__(self, parent: Scope):
+        super().__init__(Injector([], parent=parent._injector))
+
+    @property
+    def notifier(self) -> OhlcvFetchDialogNotifier:
+        return self._injector.get(OhlcvFetchDialogNotifier)

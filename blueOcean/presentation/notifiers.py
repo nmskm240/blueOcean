@@ -1,118 +1,62 @@
 import dataclasses
-from dataclasses import replace
-from datetime import datetime
-from types import MappingProxyType
-from typing import Callable, Type
 
 from injector import inject
 
-from blueOcean.application import usecases
 from blueOcean.application.dto import AccountCredentialInfo, BacktestConfig
-from blueOcean.application.usecases import FetchAccountsUsecase, RegistAccountUsecase
-from blueOcean.domain.ohlcv import Timeframe
+from blueOcean.application.usecases import (
+    FetchAccountsUsecase,
+    FetchFetchableExchangesUsecase,
+    FetchOhlcvUsecase,
+    LaunchBotUsecase,
+    RegistAccountUsecase,
+)
+from blueOcean.presentation.states import OhlcvFetchDialogState
 
 
 class BacktestNotifier:
-    def __init__(self):
+    def __init__(self, launch_usecase: LaunchBotUsecase):
         self._state = BacktestConfig()
+        self._launch_usecase = launch_usecase
 
     @property
-    def source(self):
-        return self._state.source
-
-    @source.setter
-    def source(self, source: str):
-        self._state.source = source
-
-    @property
-    def symbol(self):
-        return self._state.symbol
-
-    @symbol.setter
-    def symbol(self, symbol: str):
-        self._state.symbol = symbol
-
-    @property
-    def timeframe(self):
-        return self._state.timeframe
-
-    @timeframe.setter
-    def timeframe(self, timeframe: Timeframe):
-        self._state.timeframe = timeframe
-
-    @property
-    def strategy_cls(self):
-        return self._state.strategy_cls
-
-    @strategy_cls.setter
-    def strategy_cls(self, strategy_cls: Type):
-        self._state.strategy_cls = strategy_cls
-
-    @property
-    def strategy_args(self):
-        return MappingProxyType(self._state.strategy_args)
-
-    @strategy_args.setter
-    def strategy_args(self, strategy_args: dict):
-        self._state.strategy_args = strategy_args
-
-    @property
-    def start_at(self):
-        return self._state.time_range.start_at
-
-    @start_at.setter
-    def start_at(self, start_at: datetime):
-        self._state.time_range = replace(self._state.time_range, start_at=start_at)
-
-    @property
-    def end_at(self):
-        return self._state.time_range.end_at
-
-    @end_at.setter
-    def end_at(self, end_at: datetime):
-        self._state.time_range = replace(self._state.time_range, end_at=end_at)
+    def state(self):
+        return self._state
 
     def on_request_backtest(self):
-        usecases.run_bot(self._state)
+        self._launch_usecase.execute(self._state)
 
 
-class FetcherSettingNotifier:
+class OhlcvFetchDialogNotifier:
+    @inject
     def __init__(
         self,
-        on_update_symbols: Callable[[], list[str]] | None = None,
+        fetch_usecase: FetchOhlcvUsecase,
+        exchanges_usecase: FetchFetchableExchangesUsecase,
+        accounts_usecase: FetchAccountsUsecase,
     ):
-        self._exchange = ""
-        self._symbol = ""
-        self._on_update_symbols = on_update_symbols
+        self._fetch_usecase = fetch_usecase
+        self._exchanges_usecase = exchanges_usecase
+        self._accounts_usecase = accounts_usecase
+
+        accounts = self._accounts_usecase.execute()
+        self._state = OhlcvFetchDialogState(
+            accounts=accounts,
+        )
 
     @property
-    def exchange(self) -> str:
-        return self._exchange
+    def state(self) -> OhlcvFetchDialogState:
+        return self._state
 
-    @exchange.setter
-    def exchange(self, exchange: str) -> None:
-        self._exchange = exchange
-        self._symbol = ""
-
-        if not self._on_update_symbols is None:
-            self._on_update_symbols([])
-
-        symbols = usecases.list_exchange_symbols(exchange)
-        self._symbol = symbols[0]
-
-        if not self._on_update_symbols is None:
-            self._on_update_symbols(symbols)
-
-    @property
-    def symbol(self) -> str:
-        return self._symbol
-
-    @symbol.setter
-    def symbol(self, symbol: str) -> None:
-        self._symbol = symbol
+    def update(self, **kwargs) -> None:
+        self._state = dataclasses.replace(self._state, **kwargs)
 
     def submit(self) -> None:
-        usecases.fetch_ohlcv(self._exchange, self._symbol)
+        if not self._state.accout:
+            return
+        self._fetch_usecase.execute(
+            self._state.accout.account_id,
+            self._state.symbol,
+        )
 
 
 class AccountPageNotifier:

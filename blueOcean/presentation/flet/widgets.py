@@ -12,8 +12,36 @@ from blueOcean.application.accessors import IExchangeSymbolAccessor
 from blueOcean.application.dto import AccountCredentialInfo
 from blueOcean.domain.ohlcv import Timeframe
 from blueOcean.infra.accessors import ExchangeSymbolDirectoryAccessor
-from blueOcean.presentation.scopes import AccountCredentialDialogScope, Scope
+from blueOcean.presentation.notifiers import BacktestNotifier
+from blueOcean.presentation.scopes import (
+    AccountCredentialDialogScope,
+    OhlcvFetchDialogScope,
+    Scope,
+)
 from blueOcean.shared.registries import StrategyRegistry
+
+# region AppBar
+
+
+class RootAppBar(ft.AppBar):
+    def __init__(self, scope: Scope):
+        super().__init__()
+
+        self._scope = scope
+        self.actions = [
+            ft.IconButton(
+                icon=ft.Icons.CACHED,
+                content=ft.Text("価格データ取得"),
+                on_click=self._open_fetcher_dialog,
+            )
+        ]
+
+    def _open_fetcher_dialog(self, e: ft.ControlEvent) -> None:
+        dialog = OhlcvFetchDialog(self._scope)
+        e.control.page.overlay.append(dialog)
+        dialog.open = True
+        e.control.page.update()
+
 
 # region Dropdown
 
@@ -28,26 +56,49 @@ class TimeframeDropdown(ft.Dropdown):
 
 
 class ExchangeDropdown(ft.Dropdown):
-    def __init__(self, value: str):
+    def __init__(self, value: str | None = None, exchanges: list[str] | None = None):
+        options = exchanges if exchanges is not None else ccxt.exchanges
         super().__init__(
             label="exchange",
-            value=value,
+            value=value or "",
             # TODO: つかえない取引所を選択肢から外す
             # TODO: ccxt以外にも対応する
-            options=[ft.DropdownOption(key=e, text=e) for e in ccxt.exchanges],
+            options=[ft.DropdownOption(key=e, text=e) for e in options],
+            expand=True,
         )
 
 
 class SymbolDropdown(ft.Dropdown):
     def __init__(
         self,
-        symbols: list[str],
+        symbols: list[str] = [],
         value: str | None = None,
     ):
         super().__init__(
             label="symbol",
             value=value or (symbols[0] if symbols else None),
             options=[ft.dropdown.Option(key=s, text=s) for s in symbols],
+            expand=True,
+        )
+
+
+class AccountDropdown(ft.Dropdown):
+    def __init__(
+        self,
+        accounts: list[AccountCredentialInfo],
+        value: str | None = None,
+    ):
+        super().__init__(
+            label="account",
+            value=value,
+            options=[
+                ft.DropdownOption(
+                    key=account.account_id,
+                    text=account.label or account.exchange_name,
+                )
+                for account in accounts
+            ],
+            expand=True,
         )
 
 
@@ -79,9 +130,7 @@ class AccountListTile(ft.ListTile):
             title=ft.Text(title),
             subtitle=ft.Text(subtitle) if subtitle else None,
             leading=ft.Icon(
-                ft.Icons.DEVELOPER_MODE
-                if info.is_sandbox
-                else ft.Icons.MONEY
+                ft.Icons.DEVELOPER_MODE if info.is_sandbox else ft.Icons.MONEY
             ),
             on_click=on_click,
         )
@@ -231,43 +280,49 @@ class BacktestDialog(ft.AlertDialog):
             self.page.update()
 
 
-class FetcherSettingDialog(ft.AlertDialog):
+class OhlcvFetchDialog(ft.AlertDialog):
     def __init__(
         self,
-        *,
-        exchange_options: list[str] | None = None,
-        default_exchange: str | None = None,
-        default_symbol: str | None = None,
-        on_submit: Callable[[str, str], None] | None = None,
+        scope: Scope,
+        on_submit: Callable[[], None] | None = None,
         on_cancel: Callable[[], None] | None = None,
     ):
         super().__init__(modal=True)
+        self._scope = OhlcvFetchDialogScope(scope)
+        self._notifier = self._scope.notifier
         self._on_submit = on_submit
         self._on_cancel = on_cancel
-        exchanges = exchange_options or list(ccxt.exchanges)
-        initial_exchange = default_exchange if default_exchange in exchanges else None
-        self.exchange_dropdown = ft.Dropdown(
-            label="exchange",
-            value=initial_exchange or (exchanges[0] if exchanges else None),
-            options=[ft.DropdownOption(key=e, text=e) for e in exchanges],
-            autofocus=True,
+        state = self._notifier.state
+        self._account_exchange_map = {
+            account.account_id: account.exchange_name for account in state.accounts
+        }
+        self.account_dropdown = AccountDropdown(
+            accounts=state.accounts,
+            value=state.accout or None,
         )
-        self.symbol_field = ft.TextField(
-            label="symbol", value=default_symbol or "", hint_text="e.g. BTC/USDT"
+        self.symbol_textfield = ft.TextField(
+            label="symbol",
         )
         self.actions = [
             ft.TextButton("キャンセル", on_click=self._handle_cancel),
-            ft.ElevatedButton("保存", on_click=self._handle_submit),
+            ft.ElevatedButton(
+                "保存",
+                on_click=self._handle_submit,
+                disabled=not state.accounts,
+            ),
         ]
         self.content = ft.Column(
             controls=[
-                ft.Text("Fetcher settings", weight=ft.FontWeight.BOLD, size=16),
+                ft.Text(
+                    "価格データ保存",
+                    theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM,
+                ),
                 ft.Text(
                     "取引所とシンボルの組み合わせを選択してください。",
-                    color=ft.colors.GREY_700,
+                    theme_style=ft.TextThemeStyle.BODY_MEDIUM,
                 ),
-                self.exchange_dropdown,
-                self.symbol_field,
+                self.account_dropdown,
+                self.symbol_textfield,
             ],
             tight=True,
             width=360,
@@ -275,8 +330,13 @@ class FetcherSettingDialog(ft.AlertDialog):
         )
 
     def _handle_submit(self, _: ft.ControlEvent) -> None:
+        self._notifier.update(
+            account=self.account_dropdown.value or None,
+            symbol=self.symbol_textfield.value,
+        )
+        self._notifier.submit()
         if self._on_submit is not None:
-            self._on_submit(self.exchange_dropdown.value or "", self.symbol_field.value)
+            self._on_submit()
         self.open = False
         self.update()
 
@@ -285,6 +345,7 @@ class FetcherSettingDialog(ft.AlertDialog):
             self._on_cancel()
         self.open = False
         self.update()
+
 
 class AccountCredentialDialog(ft.AlertDialog):
     def __init__(

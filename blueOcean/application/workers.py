@@ -14,6 +14,7 @@ import quantstats as qs
 from injector import Injector
 
 from blueOcean.application.di import BacktestModule, LiveTradeModule
+from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.domain.bot import BacktestContext, BotId, IBotWorker, LiveContext
 from blueOcean.domain.ohlcv import OhlcvFetcher
 
@@ -78,7 +79,8 @@ class LiveTradeWorker(BotProcessWorker):
         container = Injector([LiveTradeModule(self._id, self._context)])
         self._run_directory = container.get(Path)
 
-        fetcher = container.get(OhlcvFetcher)
+        fetcher_factory = container.get(IOhlcvFetcherFactory)
+        fetcher = fetcher_factory.create(self._context.account_id)
         queue = container.get(Queue)
         self.threads = [
             threading.Thread(

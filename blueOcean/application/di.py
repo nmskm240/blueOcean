@@ -1,9 +1,7 @@
 from pathlib import Path
 from queue import Queue
-from typing import Type
 
 import backtrader as bt
-import ccxt
 import duckdb
 from injector import Module, provider, singleton
 from peewee import SqliteDatabase
@@ -12,9 +10,9 @@ from blueOcean.application.analyzers import StreamingAnalyzer
 from blueOcean.application.accessors import IBotRuntimeDirectoryAccessor
 from blueOcean.application.broker import Broker
 from blueOcean.application.feed import LocalDataFeed, QueueDataFeed
+from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.application.services import BotWorkerFactory
 from blueOcean.application.store import IStore
-from blueOcean.domain.account import ApiCredential
 from blueOcean.domain.bot import (
     BacktestContext,
     BotContext,
@@ -23,20 +21,16 @@ from blueOcean.domain.bot import (
     IBotWorkerFactory,
     LiveContext,
 )
-from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher
+from blueOcean.domain.ohlcv import IOhlcvRepository
 from blueOcean.infra.database.entities import (
     AccountEntity,
     BotContextEntity,
     BotEntity,
     proxy,
 )
-from blueOcean.infra.database.repositories import (
-    AccountRepository,
-    BotRepository,
-    OhlcvRepository,
-)
+from blueOcean.infra.database.repositories import BotRepository, OhlcvRepository
 from blueOcean.infra.accessors import LocalBotRuntimeDirectoryAccessor
-from blueOcean.infra.fetchers import CcxtOhlcvFetcher
+from blueOcean.infra.factories import OhlcvFetcherFactory
 from blueOcean.infra.stores import CcxtSpotStore
 
 
@@ -68,38 +62,15 @@ class AppDatabaseModule(Module):
         return db
 
 
-class ExchangeModule(Module):
-    def __init__(self, context: BotContext):
-        self._context = context
-
-    def configure(self, binder):
-        binder.install(HistoricalDataModule())
-
-        binder.bind(IOhlcvRepository, to=OhlcvRepository)
-        binder.bind(OhlcvFetcher, to=CcxtOhlcvFetcher)
-
-    @singleton
-    @provider
-    def api_credential(self, repository: AccountRepository) -> ApiCredential:
-        account = repository.find_by_id(self._context.account_id)
-        return account.credential
-
-    @singleton
-    @provider
-    def exchange(self, cred: ApiCredential) -> ccxt.Exchange:
-        meta: Type[ccxt.Exchange] = getattr(ccxt, cred.exchange)
-        ex = meta({"apiKey": cred.key, "secret": cred.secret})
-        ex.set_sandbox_mode(cred.is_sandbox)
-        ex.load_markets()
-        return ex
-
-
-class BotRuntimeModule(Module):
+class AppModule(Module):
     def configure(self, binder):
         binder.install(AppDatabaseModule())
+        binder.install(HistoricalDataModule())
 
         binder.bind(IBotRepository, to=BotRepository)
         binder.bind(IBotWorkerFactory, to=BotWorkerFactory)
+        binder.bind(IOhlcvRepository, to=OhlcvRepository)
+        binder.bind(IOhlcvFetcherFactory, to=OhlcvFetcherFactory)
 
 
 class LiveTradeModule(Module):
@@ -108,9 +79,9 @@ class LiveTradeModule(Module):
         self.context = context
 
     def configure(self, binder):
-        binder.install(ExchangeModule(self.context))
         binder.install(AppDatabaseModule())
 
+        binder.bind(IOhlcvFetcherFactory, to=OhlcvFetcherFactory)
         binder.bind(IStore, to=CcxtSpotStore)
         binder.bind(Queue, to=Queue, scope=singleton)
         binder.bind(bt.feed.DataBase, to=QueueDataFeed)

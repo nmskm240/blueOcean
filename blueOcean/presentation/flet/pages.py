@@ -9,7 +9,7 @@ from blueOcean.presentation.flet.widgets import (
     AccountListTile,
     BacktestDialog,
 )
-from blueOcean.presentation.scopes import AccountPageScope, Scope
+from blueOcean.presentation.scopes import AccountPageScope, BotTopPageScope, Scope
 
 
 class IPage(metaclass=ABCMeta):
@@ -42,7 +42,7 @@ class HomePage(IPage, RootLayout.IRootNavigationItem):
         )
 
 
-class BotPage(IPage, RootLayout.IRootNavigationItem):
+class BotTopPage(IPage, RootLayout.IRootNavigationItem):
     order = 1
     route = "/bots"
     destination = ft.NavigationRailDestination(
@@ -50,17 +50,14 @@ class BotPage(IPage, RootLayout.IRootNavigationItem):
         label="Bots",
     )
 
-    @classmethod
-    def render(cls, page: ft.Page, params: Params, basket: Basket) -> ft.View:
-        backtest_dialog = BacktestDialog()
+    def __init__(self, scope: Scope):
+        self._scope = BotTopPageScope(scope)
+        self._notifier = self._scope.notifier
 
-        def _open_backtest(e: ft.ControlEvent) -> None:
-            e.control.page.overlay.append(backtest_dialog)
-            backtest_dialog.open = True
-            e.control.page.update()
+    def render(self, page: ft.Page, params: Params, basket: Basket) -> ft.View:
 
         return ft.View(
-            cls.route,
+            BotTopPage.route,
             floating_action_button=ft.FloatingActionButton(
                 icon=ft.Icon(ft.Icons.ADD),
                 content=ft.PopupMenuButton(
@@ -68,7 +65,7 @@ class BotPage(IPage, RootLayout.IRootNavigationItem):
                     items=[
                         ft.PopupMenuItem(
                             text="Backtest",
-                            on_click=_open_backtest,
+                            on_click=self._open_backtest,
                         ),
                         ft.PopupMenuItem(
                             text="Live bot",
@@ -78,7 +75,7 @@ class BotPage(IPage, RootLayout.IRootNavigationItem):
             ),
             controls=[
                 RootLayout(
-                    index=cls.order,
+                    index=BotTopPage.order,
                     content=ft.Row(
                         controls=[
                             ft.Markdown("# Bots"),
@@ -87,6 +84,12 @@ class BotPage(IPage, RootLayout.IRootNavigationItem):
                 ),
             ],
         )
+    
+    def _open_backtest(self, e: ft.ControlEvent) -> None:
+        backtest_dialog = BacktestDialog()
+        e.control.page.overlay.append(backtest_dialog)
+        backtest_dialog.open = True
+        e.control.page.update()
 
 
 class AccountPage(IPage, RootLayout.IRootNavigationItem):
