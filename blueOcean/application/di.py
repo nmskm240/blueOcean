@@ -1,20 +1,27 @@
+from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from queue import Queue
-from typing import Type
 
 import backtrader as bt
-import ccxt
 import duckdb
 from injector import Module, provider, singleton
 from peewee import SqliteDatabase
 
+from blueOcean.application.accessors import (
+    IBotRuntimeDirectoryAccessor,
+    IExchangeSymbolAccessor,
+)
 from blueOcean.application.analyzers import StreamingAnalyzer
-from blueOcean.application.accessors import IBotRuntimeDirectoryAccessor
 from blueOcean.application.broker import Broker
+from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.application.feed import LocalDataFeed, QueueDataFeed
-from blueOcean.application.services import BotWorkerFactory
+from blueOcean.application.services import (
+    BacktestExchangeService,
+    BotWorkerFactory,
+    CcxtExchangeService,
+    IExchangeService,
+)
 from blueOcean.application.store import IStore
-from blueOcean.domain.account import ApiCredential
 from blueOcean.domain.bot import (
     BacktestContext,
     BotContext,
@@ -23,20 +30,19 @@ from blueOcean.domain.bot import (
     IBotWorkerFactory,
     LiveContext,
 )
-from blueOcean.domain.ohlcv import IOhlcvRepository, OhlcvFetcher
+from blueOcean.domain.ohlcv import IOhlcvRepository
+from blueOcean.infra.accessors import (
+    ExchangeSymbolDirectoryAccessor,
+    LocalBotRuntimeDirectoryAccessor,
+)
 from blueOcean.infra.database.entities import (
     AccountEntity,
     BotContextEntity,
     BotEntity,
     proxy,
 )
-from blueOcean.infra.database.repositories import (
-    AccountRepository,
-    BotRepository,
-    OhlcvRepository,
-)
-from blueOcean.infra.accessors import LocalBotRuntimeDirectoryAccessor
-from blueOcean.infra.fetchers import CcxtOhlcvFetcher
+from blueOcean.infra.database.repositories import BotRepository, OhlcvRepository
+from blueOcean.infra.factories import OhlcvFetcherFactory
 from blueOcean.infra.stores import CcxtSpotStore
 
 
@@ -68,54 +74,31 @@ class AppDatabaseModule(Module):
         return db
 
 
-class ExchangeModule(Module):
-    def __init__(self, context: BotContext):
-        self._context = context
-
-    def configure(self, binder):
-        binder.install(HistoricalDataModule())
-
-        binder.bind(IOhlcvRepository, to=OhlcvRepository)
-        binder.bind(OhlcvFetcher, to=CcxtOhlcvFetcher)
-
-    @singleton
-    @provider
-    def api_credential(self, repository: AccountRepository) -> ApiCredential:
-        account = repository.find_by_id(self._context.account_id)
-        return account.credential
-
-    @singleton
-    @provider
-    def exchange(self, cred: ApiCredential) -> ccxt.Exchange:
-        meta: Type[ccxt.Exchange] = getattr(ccxt, cred.exchange)
-        ex = meta({"apiKey": cred.key, "secret": cred.secret})
-        ex.set_sandbox_mode(cred.is_sandbox)
-        ex.load_markets()
-        return ex
-
-
-class BotRuntimeModule(Module):
+class AppModule(Module):
     def configure(self, binder):
         binder.install(AppDatabaseModule())
+        binder.install(HistoricalDataModule())
 
         binder.bind(IBotRepository, to=BotRepository)
         binder.bind(IBotWorkerFactory, to=BotWorkerFactory)
+        binder.bind(IOhlcvRepository, to=OhlcvRepository)
+        binder.bind(IOhlcvFetcherFactory, to=OhlcvFetcherFactory)
 
 
-class LiveTradeModule(Module):
-    def __init__(self, id: BotId, context: LiveContext):
-        self.id = id
-        self.context = context
+class FetchModule(Module):
+    def configure(self, binder):
+        binder.bind(IExchangeService, to=CcxtExchangeService)
+
+
+class IBotRunTimeModule(Module, metaclass=ABCMeta):
+    def __init__(self, id: BotId, context: BotContext):
+        self._id = id
+        self._context = context
 
     def configure(self, binder):
-        binder.install(ExchangeModule(self.context))
         binder.install(AppDatabaseModule())
 
-        binder.bind(IStore, to=CcxtSpotStore)
-        binder.bind(Queue, to=Queue, scope=singleton)
-        binder.bind(bt.feed.DataBase, to=QueueDataFeed)
-        binder.bind(bt.broker.BrokerBase, to=Broker)
-
+        binder.bind(IOhlcvFetcherFactory, to=OhlcvFetcherFactory)
         binder.bind(
             IBotRuntimeDirectoryAccessor,
             to=LocalBotRuntimeDirectoryAccessor,
@@ -124,7 +107,25 @@ class LiveTradeModule(Module):
     @provider
     @singleton
     def directory(self, accessor: IBotRuntimeDirectoryAccessor) -> Path:
-        return accessor.generate_directory(self.id)
+        return accessor.generate_directory(self._id)
+
+    @provider
+    @abstractmethod
+    def cerebro_engine(self) -> bt.Cerebro:
+        raise NotImplementedError()
+
+
+class LiveTradeRuntimeModule(IBotRunTimeModule):
+    def __init__(self, id: BotId, context: LiveContext):
+        super().__init__(id, context)
+
+    def configure(self, binder):
+        super().configure(binder)
+
+        binder.bind(IStore, to=CcxtSpotStore)
+        binder.bind(Queue, to=Queue, scope=singleton)
+        binder.bind(bt.feed.DataBase, to=QueueDataFeed)
+        binder.bind(bt.broker.BrokerBase, to=Broker)
 
     @provider
     def cerebro_engine(
@@ -142,39 +143,31 @@ class LiveTradeModule(Module):
             analyzers=["timereturn"],
             path=run_directory,
         )
-        cerebro.addstrategy(self.context.strategy_cls, **self.context.strategy_args)
+        cerebro.addstrategy(self._context.strategy_cls, **self._context.strategy_args)
         return cerebro
 
 
-class BacktestModule(Module):
+class BacktestRuntimeModule(IBotRunTimeModule):
     def __init__(self, id: BotId, context: BacktestContext):
-        self.id = id
-        self.context = context
+        super().__init__(id, context)
 
     def configure(self, binder):
+        super().configure(binder)
         binder.install(HistoricalDataModule())
-        binder.install(AppDatabaseModule())
 
         binder.bind(IOhlcvRepository, OhlcvRepository)
-        binder.bind(
-            IBotRuntimeDirectoryAccessor,
-            to=LocalBotRuntimeDirectoryAccessor,
-        )
-
-    @provider
-    @singleton
-    def directory(self, accessor: IBotRuntimeDirectoryAccessor) -> Path:
-        return accessor.generate_directory(self.id)
+        binder.bind(IExchangeSymbolAccessor, to=ExchangeSymbolDirectoryAccessor)
+        binder.bind(IExchangeService, to=BacktestExchangeService)
 
     @provider
     def feed(self, repository: IOhlcvRepository) -> bt.feed.DataBase:
         return LocalDataFeed(
             repository=repository,
-            symbol=self.context.symbol,
-            source=self.context.source,
-            ohlcv_timeframe=self.context.timeframe,
-            start_at=self.context.start_at,
-            end_at=self.context.end_at,
+            symbol=self._context.symbol,
+            source=self._context.source,
+            ohlcv_timeframe=self._context.timeframe,
+            start_at=self._context.start_at,
+            end_at=self._context.end_at,
         )
 
     @provider
@@ -185,7 +178,7 @@ class BacktestModule(Module):
     ) -> bt.Cerebro:
         cerebro = bt.Cerebro()
         cerebro.adddata(feed)
-        cash = getattr(self.context, "cash", None)
+        cash = getattr(self._context, "cash", None)
         if cash is not None:
             cerebro.broker.setcash(cash)
         cerebro.addanalyzer(bt.analyzers.TimeReturn)
@@ -194,5 +187,14 @@ class BacktestModule(Module):
             analyzers=["timereturn"],
             path=run_directory,
         )
-        cerebro.addstrategy(self.context.strategy_cls, **self.context.strategy_args)
+        cerebro.addstrategy(self._context.strategy_cls, **self._context.strategy_args)
         return cerebro
+
+
+class BacktestDialogModule(Module):
+    def __init__(self):
+        super().__init__()
+
+    def configure(self, binder):
+        binder.bind(IExchangeSymbolAccessor, to=ExchangeSymbolDirectoryAccessor)
+        binder.bind(IExchangeService, to=BacktestExchangeService)

@@ -149,3 +149,4 @@ cython_debug/
 data/*
 notebooks/*
 out/*
+logs/*

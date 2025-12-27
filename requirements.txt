@@ -18,7 +18,8 @@ backtrader_plotting
 nbformat>=4.2.0
 nbconvert
 ipykernel
-streamlit
+flet
+flet-route
 quantstats
 
 logging

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Type
 
@@ -12,13 +12,22 @@ from blueOcean.domain.bot import BacktestContext, LiveContext
 from blueOcean.domain.ohlcv import Timeframe
 
 
+@dataclass(frozen=True)
+class DatetimeRange:
+    start_at: datetime = field(default=datetime.min)
+    end_at: datetime = field(default=datetime.max)
+
+    def between(self, date: datetime):
+        return self.start_at <= date < self.end_at
+
+
 @dataclass
 class IBotConfig[TContext](metaclass=ABCMeta):
-    source: str
-    symbol: str
-    timeframe: Timeframe
-    strategy_cls: Type[bt.Strategy]
-    strategy_args: dict[str, Any]
+    source: str = field(default="")
+    symbol: str = field(default="")
+    timeframe: Timeframe = field(default=Timeframe.ONE_MINUTE)
+    strategy_cls: Type[bt.Strategy] = field(default=None)
+    strategy_args: dict[str, Any] = field(default_factory=dict)
 
     @abstractmethod
     def to_context(self) -> TContext:
@@ -27,7 +36,7 @@ class IBotConfig[TContext](metaclass=ABCMeta):
 
 @dataclass
 class LiveConfig(IBotConfig[LiveContext]):
-    account_id: str
+    account_id: str = field(default="")
 
     def to_context(self):
         return LiveContext(
@@ -42,8 +51,8 @@ class LiveConfig(IBotConfig[LiveContext]):
 
 @dataclass
 class BacktestConfig(IBotConfig[BacktestContext]):
-    cash: int
-    time_range: DatetimeRange
+    cash: int = field(default=10000)
+    time_range: DatetimeRange = field(default_factory=DatetimeRange)
 
     def to_context(self):
         return BacktestContext(
@@ -58,9 +67,10 @@ class BacktestConfig(IBotConfig[BacktestContext]):
 
 
 @dataclass(frozen=True)
-class DatetimeRange:
-    start_at: datetime
-    end_at: datetime
-
-    def between(self, date: datetime):
-        return self.start_at <= date < self.end_at
+class AccountCredentialInfo:
+    account_id: str = field(default="")
+    exchange_name: str = field(default="")
+    api_key: str = field(default="")
+    api_secret: str = field(default="")
+    is_sandbox: bool = field(default=True)
+    label: str = field(default="")

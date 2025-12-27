@@ -1,6 +1,8 @@
 import multiprocessing
+import flet as ft
 
-from blueOcean.presentation import streamlit
+import blueOcean.core.strategies
+from blueOcean.presentation.flet import run
 
 if __name__ == "__main__":
     try:
@@ -8,4 +10,4 @@ if __name__ == "__main__":
     except RuntimeError:
         # 既に設定されているなら無視
         pass
-    streamlit.setup()
+    ft.app(run, host="0.0.0.0")

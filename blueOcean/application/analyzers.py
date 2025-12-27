@@ -9,8 +9,12 @@ class StreamingAnalyzer(bt.Analyzer):
     )
 
     def start(self):
-        self.file = open(self.p.path.joinPath("metrics.csv"), "a", buffering=1)
-        self.file.write("timestamp,analyzer,key,value\n")
+        metrics_path = Path(self.p.path) / "metrics.csv"
+        metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        file_exists = metrics_path.exists()
+        self.file = open(metrics_path, "a", buffering=1)
+        if not file_exists or metrics_path.stat().st_size == 0:
+            self.file.write("timestamp,analyzer,key,value\n")
 
     def next(self):
         ts = self.strategy.datas[0].datetime.datetime(0)
