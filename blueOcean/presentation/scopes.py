@@ -9,6 +9,7 @@ from blueOcean.presentation.notifiers import (
     AccountPageNotifier,
     BacktestDialogNotifier,
     BotTopPageNotifier,
+    OhlcvCsvUploadDialogNotifier,
     OhlcvFetchDialogNotifier,
 )
 
@@ -64,6 +65,15 @@ class OhlcvFetchDialogScope(Scope):
     @property
     def notifier(self) -> OhlcvFetchDialogNotifier:
         return self._injector.get(OhlcvFetchDialogNotifier)
+
+
+class OhlcvCsvUploadDialogScope(Scope):
+    def __init__(self, parent: Scope):
+        super().__init__(Injector([], parent=parent._injector))
+
+    @property
+    def notifier(self) -> OhlcvCsvUploadDialogNotifier:
+        return self._injector.get(OhlcvCsvUploadDialogNotifier)
 
 
 class BacktestDialogScope(Scope):

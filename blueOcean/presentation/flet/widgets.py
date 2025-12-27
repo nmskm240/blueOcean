@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from pathlib import Path
 from typing import Any, Callable, Type
 
 import backtrader as bt
@@ -13,6 +14,7 @@ from blueOcean.domain.ohlcv import Timeframe
 from blueOcean.presentation.scopes import (
     AccountCredentialDialogScope,
     BacktestDialogScope,
+    OhlcvCsvUploadDialogScope,
     OhlcvFetchDialogScope,
     Scope,
 )
@@ -27,15 +29,30 @@ class RootAppBar(ft.AppBar):
 
         self._scope = scope
         self.actions = [
-            ft.IconButton(
+            ft.PopupMenuButton(
                 icon=ft.Icons.CACHED,
-                content=ft.Text("価格データ取得"),
-                on_click=self._open_fetcher_dialog,
+                tooltip="データ更新",
+                items=[
+                    ft.PopupMenuItem(
+                        text="価格データ取得",
+                        on_click=self._open_fetcher_dialog,
+                    ),
+                    ft.PopupMenuItem(
+                        text="OHLCVデータアップロード",
+                        on_click=self._open_csv_upload_dialog,
+                    ),
+                ],
             )
         ]
 
     def _open_fetcher_dialog(self, e: ft.ControlEvent) -> None:
         dialog = OhlcvFetchDialog(self._scope)
+        e.control.page.overlay.append(dialog)
+        dialog.open = True
+        e.control.page.update()
+
+    def _open_csv_upload_dialog(self, e: ft.ControlEvent) -> None:
+        dialog = OhlcvCsvUploadDialog(self._scope)
         e.control.page.overlay.append(dialog)
         dialog.open = True
         e.control.page.update()
@@ -381,6 +398,124 @@ class OhlcvFetchDialog(ft.AlertDialog):
             account=self.account_dropdown.value or None,
             symbol=self.symbol_textfield.value,
         )
+        self._notifier.submit()
+        if self._on_submit is not None:
+            self._on_submit()
+        self.open = False
+        self.update()
+
+    def _handle_cancel(self, _: ft.ControlEvent) -> None:
+        if self._on_cancel is not None:
+            self._on_cancel()
+        self.open = False
+        self.update()
+
+
+class OhlcvCsvUploadDialog(ft.AlertDialog):
+    def __init__(
+        self,
+        scope: Scope,
+        on_submit: Callable[[], None] | None = None,
+        on_cancel: Callable[[], None] | None = None,
+    ):
+        super().__init__(modal=True)
+        self._scope = OhlcvCsvUploadDialogScope(scope)
+        self._notifier = self._scope.notifier
+        self._on_submit = on_submit
+        self._on_cancel = on_cancel
+        self._file_picker = ft.FilePicker(on_result=self._handle_file_picker_result)
+
+        self.exchange_textfield = ft.TextField(
+            label="exchange",
+            on_change=self._handle_exchange_change,
+        )
+        self.symbol_textfield = ft.TextField(
+            label="symbol",
+            on_change=self._handle_symbol_change,
+        )
+        self.file_name_text = ft.Text("未選択")
+        self.upload_button = ft.ElevatedButton(
+            "CSVを選択",
+            icon=ft.Icons.UPLOAD_FILE,
+            on_click=self._open_file_picker,
+        )
+        self.submit_button = ft.ElevatedButton(
+            "保存",
+            on_click=self._handle_submit,
+            disabled=True,
+        )
+        self.actions = [
+            ft.TextButton("キャンセル", on_click=self._handle_cancel),
+            self.submit_button,
+        ]
+        self.content = ft.Column(
+            controls=[
+                ft.Text(
+                    "OHLCVデータアップロード",
+                    theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM,
+                ),
+                ft.Text(
+                    "取引所・シンボルを入力し、CSVファイルを選択してください。",
+                    theme_style=ft.TextThemeStyle.BODY_MEDIUM,
+                ),
+                self.exchange_textfield,
+                self.symbol_textfield,
+                ft.Row(
+                    controls=[
+                        self.upload_button,
+                        self.file_name_text,
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+            ],
+            tight=True,
+            width=360,
+            spacing=12,
+        )
+
+    def _open_file_picker(self, e: ft.ControlEvent) -> None:
+        page = e.control.page
+        if self._file_picker not in page.overlay:
+            page.overlay.append(self._file_picker)
+            page.update()
+        self._file_picker.pick_files(allowed_extensions=["csv"])
+
+    def _handle_file_picker_result(self, e: ft.FilePickerResultEvent) -> None:
+        if not e.files:
+            return
+        file_path = e.files[0].path
+        if not file_path:
+            return
+        self._notifier.update(file_path=file_path)
+        self.file_name_text.value = Path(file_path).name
+        self._refresh_submit_state()
+        self.update()
+
+    def _handle_exchange_change(self, e: ft.ControlEvent) -> None:
+        self._notifier.update(exchange=e.control.value)
+        self._refresh_submit_state()
+
+    def _handle_symbol_change(self, e: ft.ControlEvent) -> None:
+        self._notifier.update(symbol=e.control.value)
+        self._refresh_submit_state()
+
+    def _refresh_submit_state(self) -> None:
+        state = self._notifier.state
+        self.submit_button.disabled = not (
+            state.exchange and state.symbol and state.file_path
+        )
+        self.submit_button.update()
+
+    def _handle_submit(self, _: ft.ControlEvent) -> None:
+        state = self._notifier.state
+        if not (state.exchange and state.symbol and state.file_path):
+            if self.page:
+                self.page.snack_bar = ft.SnackBar(
+                    ft.Text("取引所・シンボル・CSVファイルを指定してください。")
+                )
+                self.page.snack_bar.open = True
+                self.page.update()
+            return
         self._notifier.submit()
         if self._on_submit is not None:
             self._on_submit()

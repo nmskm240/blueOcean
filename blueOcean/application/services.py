@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 
 import ccxt
+import pandas as pd
 from injector import inject
 
 from blueOcean.application.accessors import IExchangeSymbolAccessor
-from blueOcean.domain.bot import (Bot, BotContext, BotId, BotRunMode,
-                                  IBotRepository, IBotWorkerFactory)
-from blueOcean.domain.ohlcv import IOhlcvRepository
+from blueOcean.domain.bot import (
+    Bot,
+    BotContext,
+    BotId,
+    BotRunMode,
+    IBotRepository,
+    IBotWorkerFactory,
+)
+from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv
 from blueOcean.infra.database.repositories import AccountRepository
 
 
@@ -120,3 +128,29 @@ class BacktestExchangeService(IExchangeService):
 
     def symbols_for(self, exchange_name: str) -> list[str]:
         return sorted(self._accessor.symbols(exchange_name))
+
+
+class OhlcvCsvImporter:
+    required_columns = {"datetime", "open", "high", "low", "close"}
+
+    def load(self, file_path: str) -> list[Ohlcv]:
+        path = Path(file_path)
+        df = pd.read_csv(path)
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        missing = self.required_columns - set(df.columns)
+        if missing:
+            raise ValueError(f"Missing columns: {sorted(missing)}")
+
+        df = df.rename(columns={"datetime": "time"})
+        df["time"] = pd.to_datetime(df["time"], utc=True)
+        df["time"] = df["time"].dt.tz_convert("UTC").dt.tz_localize(None)
+
+        if "volume" not in df.columns:
+            df["volume"] = 0.0
+
+        for column in ["open", "high", "low", "close", "volume"]:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+
+        df = df.dropna(subset=["time", "open", "high", "low", "close", "volume"])
+        df = df[["time", "open", "high", "low", "close", "volume"]]
+        return Ohlcv.from_dataframe(df)

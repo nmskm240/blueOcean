@@ -5,7 +5,11 @@ from injector import inject
 from blueOcean.application.dto import AccountCredentialInfo, IBotConfig
 from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.application.mapper import to_account
-from blueOcean.application.services import BotExecutionService, IExchangeService
+from blueOcean.application.services import (
+    BotExecutionService,
+    IExchangeService,
+    OhlcvCsvImporter,
+)
 from blueOcean.domain.account import AccountId
 from blueOcean.domain.bot import BotId
 from blueOcean.domain.ohlcv import IOhlcvRepository
@@ -34,6 +38,23 @@ class FetchOhlcvUsecase:
 
         for batch in fetcher.fetch_ohlcv(symbol, latest_at):
             self._ohlcv_repository.save(batch, account.credential.exchange, symbol)
+
+
+class UploadOhlcvCsvUsecase:
+    @inject
+    def __init__(
+        self,
+        importer: OhlcvCsvImporter,
+        ohlcv_repository: IOhlcvRepository,
+    ):
+        self._importer = importer
+        self._ohlcv_repository = ohlcv_repository
+
+    def execute(self, source: str, symbol: str, file_path: str) -> None:
+        ohlcvs = self._importer.load(file_path)
+        if not ohlcvs:
+            return
+        self._ohlcv_repository.save(ohlcvs, source, symbol)
 
 
 class FetchExchangeSymbolsUsecase:

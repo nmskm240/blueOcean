@@ -14,6 +14,13 @@ class OhlcvFetchDialogState:
 
 
 @dataclass(frozen=True)
+class OhlcvCsvUploadDialogState:
+    exchange: str = field(default="")
+    symbol: str = field(default="")
+    file_path: str = field(default="")
+
+
+@dataclass(frozen=True)
 class BacktestDialogState:
     source: str = field(default="")
     symbol: str = field(default="")
@@ -22,4 +29,3 @@ class BacktestDialogState:
     strategy_args: dict[str, Any] = field(default_factory=dict)
     start_date: datetime.date | None = field(default=None)
     end_date: datetime.date | None = field(default=None)
-

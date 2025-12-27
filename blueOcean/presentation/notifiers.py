@@ -10,8 +10,13 @@ from blueOcean.application.usecases import (
     FetchOhlcvUsecase,
     LaunchBotUsecase,
     RegistAccountUsecase,
+    UploadOhlcvCsvUsecase,
 )
-from blueOcean.presentation.states import BacktestDialogState, OhlcvFetchDialogState
+from blueOcean.presentation.states import (
+    BacktestDialogState,
+    OhlcvCsvUploadDialogState,
+    OhlcvFetchDialogState,
+)
 from blueOcean.shared.registries import StrategyRegistry
 
 
@@ -88,6 +93,29 @@ class OhlcvFetchDialogNotifier:
         self._fetch_usecase.execute(
             self._state.accout.account_id,
             self._state.symbol,
+        )
+
+
+class OhlcvCsvUploadDialogNotifier:
+    @inject
+    def __init__(self, upload_usecase: UploadOhlcvCsvUsecase):
+        self._upload_usecase = upload_usecase
+        self._state = OhlcvCsvUploadDialogState()
+
+    @property
+    def state(self) -> OhlcvCsvUploadDialogState:
+        return self._state
+
+    def update(self, **kwargs) -> None:
+        self._state = dataclasses.replace(self._state, **kwargs)
+
+    def submit(self) -> None:
+        if not self._state.exchange or not self._state.symbol or not self._state.file_path:
+            return
+        self._upload_usecase.execute(
+            self._state.exchange,
+            self._state.symbol,
+            self._state.file_path,
         )
 
 
