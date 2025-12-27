@@ -86,7 +86,7 @@ class BotTopPage(IPage, RootLayout.IRootNavigationItem):
         )
     
     def _open_backtest(self, e: ft.ControlEvent) -> None:
-        backtest_dialog = BacktestDialog()
+        backtest_dialog = BacktestDialog(self._scope)
         e.control.page.overlay.append(backtest_dialog)
         backtest_dialog.open = True
         e.control.page.update()

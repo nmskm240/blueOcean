@@ -22,13 +22,11 @@ class ExchangeSymbolDirectoryAccessor(IExchangeSymbolAccessor):
     def __init__(self, data_dir: str | Path = "data"):
         self._data_dir = Path(data_dir)
 
-    def list_exchange_symbols(self) -> dict[str, list[str]]:
-        result: dict[str, list[str]] = {}
-        if not self._data_dir.exists():
-            return result
-
-        for exchange_dir in sorted(p for p in self._data_dir.iterdir() if p.is_dir()):
-            symbols = sorted(p.name for p in exchange_dir.iterdir() if p.is_dir())
-            if symbols:
-                result[exchange_dir.name] = symbols
-        return result
+    @property
+    def exchanges(self):
+        return sorted(p.name for p in self._data_dir.iterdir() if p.is_dir())
+    
+    def symbols_for(self, echange_name):
+        exchange_dir = self._data_dir / echange_name
+        return sorted(p.name for p in exchange_dir.iterdir() if p.is_dir())
+    

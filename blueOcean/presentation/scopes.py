@@ -2,10 +2,13 @@ from abc import ABCMeta
 
 from injector import Injector
 
-from blueOcean.application.di import AppModule
+from blueOcean.application.accessors import IExchangeSymbolAccessor
+from blueOcean.application.di import AppModule, BacktestDialogModule, FetchModule
 from blueOcean.presentation.notifiers import (
     AccountCredentialDialogNotifier,
     AccountPageNotifier,
+    BacktestDialogNotifier,
+    BotTopPageNotifier,
     OhlcvFetchDialogNotifier,
 )
 
@@ -21,6 +24,7 @@ class AppScope(Scope):
             Injector(
                 [
                     AppModule(),
+                    FetchModule(),
                 ]
             )
         )
@@ -39,6 +43,10 @@ class BotTopPageScope(Scope):
     def __init__(self, parent: Scope):
         super().__init__(Injector([], parent=parent._injector))
 
+    @property
+    def notifier(self) -> BotTopPageNotifier:
+        return self._injector.get(BotTopPageNotifier)
+
 
 class AccountCredentialDialogScope(Scope):
     def __init__(self, parent: Scope):
@@ -56,3 +64,23 @@ class OhlcvFetchDialogScope(Scope):
     @property
     def notifier(self) -> OhlcvFetchDialogNotifier:
         return self._injector.get(OhlcvFetchDialogNotifier)
+
+
+class BacktestDialogScope(Scope):
+    def __init__(self, parent: Scope):
+        super().__init__(
+            Injector(
+                [
+                    BacktestDialogModule(),
+                ],
+                parent=parent._injector,
+            )
+        )
+
+    @property
+    def notifier(self) -> BacktestDialogNotifier:
+        return self._injector.get(BacktestDialogNotifier)
+    
+    @property
+    def exchange_symbol_accessor(self) -> IExchangeSymbolAccessor:
+        return self._injector.get(IExchangeSymbolAccessor)

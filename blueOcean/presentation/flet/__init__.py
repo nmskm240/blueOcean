@@ -15,7 +15,13 @@ def run(page: ft.Page):
     app_scope = AppScope()
     routes = [
         path(HomePage.route, clear=True, view=HomePage.render),
-        path(BotTopPage.route, clear=True, view=BotTopPage.render),
+        path(
+            BotTopPage.route,
+            clear=True,
+            view=lambda page, params, basket: BotTopPage(app_scope).render(
+                page, params, basket
+            ),
+        ),
         path(
             AccountPage.route,
             clear=True,

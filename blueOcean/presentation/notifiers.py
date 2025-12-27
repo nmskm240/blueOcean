@@ -13,7 +13,8 @@ from blueOcean.application.usecases import (
 from blueOcean.presentation.states import OhlcvFetchDialogState
 
 
-class BacktestNotifier:
+class BacktestDialogNotifier:
+    @inject
     def __init__(self, launch_usecase: LaunchBotUsecase):
         self._state = BacktestConfig()
         self._launch_usecase = launch_usecase

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-from pathlib import Path
 from typing import Any, Callable, Type
 
 import backtrader as bt
@@ -11,10 +10,9 @@ import flet as ft
 from blueOcean.application.accessors import IExchangeSymbolAccessor
 from blueOcean.application.dto import AccountCredentialInfo
 from blueOcean.domain.ohlcv import Timeframe
-from blueOcean.infra.accessors import ExchangeSymbolDirectoryAccessor
-from blueOcean.presentation.notifiers import BacktestNotifier
 from blueOcean.presentation.scopes import (
     AccountCredentialDialogScope,
+    BacktestDialogScope,
     OhlcvFetchDialogScope,
     Scope,
 )
@@ -221,10 +219,11 @@ class StrategyParamField(ft.Column):
 
 
 class BacktestDialog(ft.AlertDialog):
-    def __init__(self):
-        self._notifier = BacktestNotifier()
-
+    def __init__(self, scope: Scope):
         super().__init__()
+        self._scope = BacktestDialogScope(scope)
+        self._notifier = self._scope.notifier
+
         self.title = ft.Text("Backtest")
         self.modal = True
         self.strategy_dropdown = StrategyDropdown()
@@ -238,7 +237,7 @@ class BacktestDialog(ft.AlertDialog):
 
         self.content = ft.Column(
             [
-                ExchangeSymbolPicker(),
+                ExchangeSymbolPicker(self._scope.exchange_symbol_accessor),
                 DateRangePicker(),
                 TimeframeDropdown(),
                 self.strategy_dropdown,
@@ -254,7 +253,7 @@ class BacktestDialog(ft.AlertDialog):
         )
         self.actions = [
             ft.TextButton("Cancel", on_click=self._on_cancel),
-            ft.TextButton("Start", on_click=self._on_start),
+            ft.TextButton("Start", on_click=self._handle_on_submit),
         ]
 
     def _set_param_field(self, strategy_name: str | None) -> None:
@@ -268,13 +267,13 @@ class BacktestDialog(ft.AlertDialog):
         self.param_container.update()
 
     def _on_cancel(self, _: ft.ControlEvent):
-        self._close()
+        self._handle_on_close()
 
-    def _on_start(self, _: ft.ControlEvent):
+    def _handle_on_submit(self, _: ft.ControlEvent):
         self._notifier.on_request_backtest()
-        self._close()
+        self._handle_on_close()
 
-    def _close(self) -> None:
+    def _handle_on_close(self) -> None:
         self.open = False
         if self.page:
             self.page.update()
@@ -505,77 +504,38 @@ class DateRangePicker(ft.Row):
 class ExchangeSymbolPicker(ft.Row):
     def __init__(
         self,
-        *,
-        data_dir: str | Path = "data",
-        exchange: str | None = None,
-        symbol: str | None = None,
-        accessor: IExchangeSymbolAccessor | None = None,
+        accessor: IExchangeSymbolAccessor,
         on_change: Callable[[tuple[str, str]], None] | None = None,
     ):
         super().__init__(spacing=12)
-        self._accessor = accessor or ExchangeSymbolDirectoryAccessor(data_dir)
-        self._initial_exchange = exchange
-        self._initial_symbol = symbol
+        self._accessor = accessor
         self._on_change = on_change
-        self.exchange_dropdown: ft.Dropdown | None = None
-        self.symbol_dropdown: ft.Dropdown | None = None
-
-        self._build_controls()
-
-    def _build_controls(self) -> None:
-        mapping = self._accessor.list_exchange_symbols()
-        exchanges = list(mapping.keys())
-        selected_exchange = (
-            self._initial_exchange
-            if self._initial_exchange in mapping
-            else (exchanges[0] if exchanges else None)
-        )
-        symbols = mapping.get(selected_exchange, [])
-        selected_symbol = (
-            self._initial_symbol
-            if self._initial_symbol in symbols
-            else (symbols[0] if symbols else None)
-        )
 
         self.exchange_dropdown = ft.Dropdown(
             label="exchange",
-            value=selected_exchange,
-            options=[ft.DropdownOption(key=name, text=name) for name in exchanges],
+            options=[ft.DropdownOption(key=e, text=e) for e in accessor.exchanges],
+            on_change=self._handle_changed_exchange,
+            expand=True,
         )
         self.symbol_dropdown = ft.Dropdown(
             label="symbol",
-            value=selected_symbol,
-            options=[ft.DropdownOption(key=name, text=name) for name in symbols],
+            expand=True,
+            disabled=True,
         )
 
-        def _notify() -> None:
-            if (
-                self._on_change is not None
-                and self.exchange_dropdown
-                and self.symbol_dropdown
-            ):
-                self._on_change(self.values())
-
-        def _on_exchange_change(_: ft.ControlEvent) -> None:
-            if self.exchange_dropdown is None or self.symbol_dropdown is None:
-                return
-            current_exchange = self.exchange_dropdown.value
-            next_symbols = mapping.get(current_exchange, [])
-            self.symbol_dropdown.options = [
-                ft.DropdownOption(key=name, text=name) for name in next_symbols
-            ]
-            self.symbol_dropdown.value = next_symbols[0] if next_symbols else None
-            self.symbol_dropdown.update()
-            _notify()
-
-        def _on_symbol_change(_: ft.ControlEvent) -> None:
-            _notify()
-
-        self.exchange_dropdown.on_change = _on_exchange_change
-        self.symbol_dropdown.on_change = _on_symbol_change
         self.controls = [self.exchange_dropdown, self.symbol_dropdown]
 
+    def _handle_changed_exchange(self, e: ft.ControlEvent):
+        exchange = e.control.value
+        self.symbol_dropdown.options = [
+            ft.DropdownOption(key=symbol, text=symbol)
+            for symbol in self._accessor.symbols_for(exchange)
+        ]
+        self.symbol_dropdown.value = None
+        self.symbol_dropdown.disabled = not bool(exchange)
+        self.symbol_dropdown.update()
+
     def values(self) -> tuple[str, str]:
-        exchange = self.exchange_dropdown.value if self.exchange_dropdown else None
-        symbol = self.symbol_dropdown.value if self.symbol_dropdown else None
+        exchange = self.exchange_dropdown.value
+        symbol = self.symbol_dropdown.value
         return (exchange or "", symbol or "")
