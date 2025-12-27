@@ -3,7 +3,11 @@ import datetime
 
 from injector import inject
 
-from blueOcean.application.dto import AccountCredentialInfo, BacktestConfig, DatetimeRange
+from blueOcean.application.dto import (
+    AccountCredentialInfo,
+    BacktestConfig,
+    DatetimeRange,
+)
 from blueOcean.application.usecases import (
     FetchAccountsUsecase,
     FetchFetchableExchangesUsecase,
@@ -24,7 +28,7 @@ class BacktestDialogNotifier:
     @property
     def state(self):
         return self._state
-    
+
     def update(self, **kwargs):
         self._state = dataclasses.replace(self._state, **kwargs)
 
@@ -83,10 +87,10 @@ class OhlcvFetchDialogNotifier:
         self._state = dataclasses.replace(self._state, **kwargs)
 
     def submit(self) -> None:
-        if not self._state.accout:
+        if not self._state.account:
             return
         self._fetch_usecase.execute(
-            self._state.accout.account_id,
+            self._state.account.account_id,
             self._state.symbol,
         )
 
@@ -122,3 +126,9 @@ class AccountCredentialDialogNotifier:
     def submit(self) -> str:
         res = self._regist_usecase.execute(self._state)
         return res.value
+
+
+class BotTopPageNotifier:
+    @inject
+    def __init__(self):
+        pass

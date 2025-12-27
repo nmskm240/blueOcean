@@ -256,7 +256,9 @@ class BacktestDialog(ft.AlertDialog):
         self.title = ft.Text("Backtest")
         self.modal = True
 
-        self.exchange_symbol_picker = ExchangeSymbolPicker(self._scope.exchange_symbol_accessor)
+        self.exchange_symbol_picker = ExchangeSymbolPicker(
+            self._scope.exchange_symbol_accessor
+        )
         self.date_range_picker = DateRangePicker()
         self.timeframe_dropdown = TimeframeDropdown()
         self.strategy_dropdown = StrategyDropdown()
@@ -345,7 +347,7 @@ class OhlcvFetchDialog(ft.AlertDialog):
         }
         self.account_dropdown = AccountDropdown(
             accounts=state.accounts,
-            value=state.accout or None,
+            value=state.account or None,
         )
         self.symbol_textfield = ft.TextField(
             label="symbol",

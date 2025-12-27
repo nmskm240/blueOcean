@@ -119,4 +119,4 @@ class BacktestExchangeService(IExchangeService):
         return sorted(self._accessor.exchanges)
 
     def symbols_for(self, exchange_name: str) -> list[str]:
-        return sorted(self._accessor.symbols(exchange_name))
+        return sorted(self._accessor.symbols_for(exchange_name))

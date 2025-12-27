@@ -8,7 +8,7 @@ from blueOcean.domain.ohlcv import Timeframe
 
 @dataclass(frozen=True)
 class OhlcvFetchDialogState:
-    accout: AccountCredentialInfo = field(default=None)
+    account: AccountCredentialInfo = field(default=None)
     symbol: str = field(default="")
     accounts: list[AccountCredentialInfo] = field(default_factory=list)
 

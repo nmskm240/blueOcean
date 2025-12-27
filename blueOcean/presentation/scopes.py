@@ -80,7 +80,7 @@ class BacktestDialogScope(Scope):
     @property
     def notifier(self) -> BacktestDialogNotifier:
         return self._injector.get(BacktestDialogNotifier)
-    
+
     @property
     def exchange_symbol_accessor(self) -> IExchangeSymbolAccessor:
         return self._injector.get(IExchangeSymbolAccessor)
