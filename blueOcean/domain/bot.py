@@ -43,13 +43,13 @@ class Bot:
         self.label = name
 
     def start(self):
-        self.worker.start()
+        self.worker.launch()
         self.pid = getattr(self.worker, "pid", None)
         self.started_at = datetime.now()
         self.status = BotStatus.RUNNING
 
     def stop(self):
-        self.worker.stop()
+        self.worker.shutdown()
         self.pid = None
         self.finished_at = datetime.now()
         self.status = BotStatus.STOPPED

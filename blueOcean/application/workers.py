@@ -25,6 +25,9 @@ class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
         self._run_directory: Path | None = None
 
     def launch(self):
+        self.start()
+
+    def run(self):
         signal.signal(signal.SIGTERM, self._on_handle_sigterm)
 
         try:

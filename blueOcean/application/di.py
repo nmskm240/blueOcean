@@ -143,7 +143,7 @@ class LiveTradeRuntimeModule(IBotRunTimeModule):
             analyzers=["timereturn"],
             path=run_directory,
         )
-        cerebro.addstrategy(self.context.strategy_cls, **self.context.strategy_args)
+        cerebro.addstrategy(self._context.strategy_cls, **self._context.strategy_args)
         return cerebro
 
 
@@ -163,11 +163,11 @@ class BacktestRuntimeModule(IBotRunTimeModule):
     def feed(self, repository: IOhlcvRepository) -> bt.feed.DataBase:
         return LocalDataFeed(
             repository=repository,
-            symbol=self.context.symbol,
-            source=self.context.source,
-            ohlcv_timeframe=self.context.timeframe,
-            start_at=self.context.start_at,
-            end_at=self.context.end_at,
+            symbol=self._context.symbol,
+            source=self._context.source,
+            ohlcv_timeframe=self._context.timeframe,
+            start_at=self._context.start_at,
+            end_at=self._context.end_at,
         )
 
     @provider
@@ -178,7 +178,7 @@ class BacktestRuntimeModule(IBotRunTimeModule):
     ) -> bt.Cerebro:
         cerebro = bt.Cerebro()
         cerebro.adddata(feed)
-        cash = getattr(self.context, "cash", None)
+        cash = getattr(self._context, "cash", None)
         if cash is not None:
             cerebro.broker.setcash(cash)
         cerebro.addanalyzer(bt.analyzers.TimeReturn)
@@ -187,7 +187,7 @@ class BacktestRuntimeModule(IBotRunTimeModule):
             analyzers=["timereturn"],
             path=run_directory,
         )
-        cerebro.addstrategy(self.context.strategy_cls, **self.context.strategy_args)
+        cerebro.addstrategy(self._context.strategy_cls, **self._context.strategy_args)
         return cerebro
 
 

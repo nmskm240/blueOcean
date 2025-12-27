@@ -48,9 +48,38 @@ class TimeframeDropdown(ft.Dropdown):
     def __init__(self, value: Timeframe = Timeframe.ONE_MINUTE):
         super().__init__(
             label="timeframe",
-            value=value,
+            value=value.name,
             options=[ft.DropdownOption(key=e.name, text=e.name) for e in Timeframe],
         )
+
+    @property
+    def value(self) -> Timeframe | None:
+        raw = ft.Dropdown.value.fget(self)
+        if raw is None:
+            return None
+        if isinstance(raw, str):
+            if raw in Timeframe.__members__:
+                return Timeframe[raw]
+            try:
+                return Timeframe.from_compression(int(raw))
+            except (ValueError, TypeError):
+                return None
+        if isinstance(raw, int):
+            try:
+                return Timeframe.from_compression(raw)
+            except ValueError:
+                return None
+        return None
+
+    @value.setter
+    def value(self, value: Timeframe | str | int | None):
+        if isinstance(value, Timeframe):
+            raw_value = value.name
+        elif isinstance(value, int):
+            raw_value = Timeframe.from_compression(value).name
+        else:
+            raw_value = value
+        ft.Dropdown.value.fset(self, raw_value)
 
 
 class ExchangeDropdown(ft.Dropdown):
@@ -226,6 +255,10 @@ class BacktestDialog(ft.AlertDialog):
 
         self.title = ft.Text("Backtest")
         self.modal = True
+
+        self.exchange_symbol_picker = ExchangeSymbolPicker(self._scope.exchange_symbol_accessor)
+        self.date_range_picker = DateRangePicker()
+        self.timeframe_dropdown = TimeframeDropdown()
         self.strategy_dropdown = StrategyDropdown()
         self.param_container = ft.Container()
 
@@ -237,9 +270,10 @@ class BacktestDialog(ft.AlertDialog):
 
         self.content = ft.Column(
             [
-                ExchangeSymbolPicker(self._scope.exchange_symbol_accessor),
-                DateRangePicker(),
-                TimeframeDropdown(),
+                self.exchange_symbol_picker,
+                self.date_range_picker,
+                self.timeframe_dropdown,
+                ft.Divider(),
                 self.strategy_dropdown,
                 ft.ExpansionTile(
                     title=ft.Text("Params"),
@@ -270,6 +304,20 @@ class BacktestDialog(ft.AlertDialog):
         self._handle_on_close()
 
     def _handle_on_submit(self, _: ft.ControlEvent):
+        exchange, symbol = self.exchange_symbol_picker.values()
+        start_date, end_date = self.date_range_picker.value()
+        strategy_args: dict[str, Any] = {}
+        if isinstance(self.param_container.content, StrategyParamField):
+            strategy_args = self.param_container.content.values()
+        self._notifier.update(
+            source=exchange,
+            symbol=symbol,
+            timeframe=self.timeframe_dropdown.value,
+            strategy=self.strategy_dropdown.value,
+            strategy_args=strategy_args,
+            start_date=start_date,
+            end_date=end_date,
+        )
         self._notifier.on_request_backtest()
         self._handle_on_close()
 

@@ -53,7 +53,7 @@ class BotExecutionService:
         worker = self._bot_worker_factory.create(bot.id, context)
 
         bot.attach(worker)
-        bot.launch()
+        bot.start()
         saved = self._bot_repository.save(bot)
         return saved.id
 
@@ -64,7 +64,7 @@ class BotExecutionService:
         worker = RecoverWorker(bot.pid)
 
         bot.attach(worker)
-        bot.shutdown()
+        bot.stop()
         self._bot_repository.save(bot)
 
 
