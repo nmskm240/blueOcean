@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any
 
-from blueOcean.application.dto import AccountCredentialInfo
+from blueOcean.application.dto import AccountCredentialInfo, BotInfo
 from blueOcean.domain.ohlcv import Timeframe
 
 
@@ -23,3 +23,7 @@ class BacktestDialogState:
     start_date: datetime.date | None = field(default=None)
     end_date: datetime.date | None = field(default=None)
 
+
+@dataclass(frozen=True)
+class BotTopPageState:
+    bots: list[BotInfo] = field(default_factory=list)

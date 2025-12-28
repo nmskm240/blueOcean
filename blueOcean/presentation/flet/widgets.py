@@ -8,7 +8,7 @@ import ccxt
 import flet as ft
 
 from blueOcean.application.accessors import IExchangeSymbolAccessor
-from blueOcean.application.dto import AccountCredentialInfo
+from blueOcean.application.dto import AccountCredentialInfo, BotInfo
 from blueOcean.domain.ohlcv import Timeframe
 from blueOcean.presentation.scopes import (
     AccountCredentialDialogScope,
@@ -159,6 +159,41 @@ class AccountListTile(ft.ListTile):
             leading=ft.Icon(
                 ft.Icons.DEVELOPER_MODE if info.is_sandbox else ft.Icons.MONEY
             ),
+            on_click=on_click,
+        )
+
+
+class BotListTile(ft.ListTile):
+    def __init__(
+        self,
+        info: BotInfo,
+        on_click: ft.OptionalControlEventCallable = None,
+    ):
+        title = info.label or info.symbol or info.bot_id
+        subtitle = " | ".join(
+            part
+            for part in [
+                info.mode,
+                info.status,
+                info.source,
+                info.symbol,
+                info.timeframe.name,
+                info.strategy,
+            ]
+            if part
+        )
+        icon = (
+            ft.Icons.PLAY_ARROW
+            if info.status == "RUNNING"
+            else ft.Icons.STOP_CIRCLE
+            if info.status == "STOPPED"
+            else ft.Icons.SMART_TOY
+        )
+
+        super().__init__(
+            title=ft.Text(title),
+            subtitle=ft.Text(subtitle) if subtitle else None,
+            leading=ft.Icon(icon),
             on_click=on_click,
         )
 

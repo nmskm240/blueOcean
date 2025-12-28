@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from injector import inject
 
-from blueOcean.application.dto import AccountCredentialInfo, IBotConfig
+from blueOcean.application.dto import AccountCredentialInfo, BotInfo, IBotConfig
 from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.application.mapper import to_account
 from blueOcean.application.services import BotExecutionService, IExchangeService
 from blueOcean.domain.account import AccountId
-from blueOcean.domain.bot import BotId
+from blueOcean.domain.bot import BotId, IBotRepository
 from blueOcean.domain.ohlcv import IOhlcvRepository
 from blueOcean.infra.database.repositories import AccountRepository
 
@@ -82,6 +82,34 @@ class FetchAccountsUsecase:
                 is_sandbox=account.credential.is_sandbox,
             )
             for account in accounts
+        ]
+
+
+class FetchBotsUsecase:
+    @inject
+    def __init__(self, repository: IBotRepository):
+        self._repository = repository
+
+    def execute(self) -> list[BotInfo]:
+        bots = self._repository.get_all()
+        return [
+            BotInfo(
+                bot_id=bot.id.value,
+                label=bot.label or "",
+                status=bot.status.name,
+                mode=bot.context.mode.name,
+                source=bot.context.source,
+                symbol=bot.context.symbol,
+                timeframe=bot.context.timeframe,
+                strategy=(
+                    bot.context.strategy_cls.__name__
+                    if bot.context.strategy_cls
+                    else ""
+                ),
+                started_at=bot.started_at,
+                finished_at=bot.finished_at,
+            )
+            for bot in bots
         ]
 
 

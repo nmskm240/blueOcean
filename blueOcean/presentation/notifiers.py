@@ -12,10 +12,15 @@ from blueOcean.application.usecases import (
     FetchAccountsUsecase,
     FetchFetchableExchangesUsecase,
     FetchOhlcvUsecase,
+    FetchBotsUsecase,
     LaunchBotUsecase,
     RegistAccountUsecase,
 )
-from blueOcean.presentation.states import BacktestDialogState, OhlcvFetchDialogState
+from blueOcean.presentation.states import (
+    BacktestDialogState,
+    BotTopPageState,
+    OhlcvFetchDialogState,
+)
 from blueOcean.shared.registries import StrategyRegistry
 
 
@@ -130,5 +135,13 @@ class AccountCredentialDialogNotifier:
 
 class BotTopPageNotifier:
     @inject
-    def __init__(self):
-        pass
+    def __init__(self, fetch_usecase: FetchBotsUsecase):
+        self._fetch_usecase = fetch_usecase
+        self._state = BotTopPageState(bots=self._fetch_usecase.execute())
+
+    @property
+    def state(self) -> BotTopPageState:
+        return self._state
+
+    def update(self):
+        self._state = BotTopPageState(bots=self._fetch_usecase.execute())

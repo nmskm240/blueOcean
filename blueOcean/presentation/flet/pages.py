@@ -8,6 +8,7 @@ from blueOcean.presentation.flet.widgets import (
     AccountCredentialDialog,
     AccountListTile,
     BacktestDialog,
+    BotListTile,
 )
 from blueOcean.presentation.scopes import AccountPageScope, BotTopPageScope, Scope
 
@@ -76,9 +77,19 @@ class BotTopPage(IPage, RootLayout.IRootNavigationItem):
             controls=[
                 RootLayout(
                     index=BotTopPage.order,
-                    content=ft.Row(
+                    content=ft.Column(
                         controls=[
-                            ft.Markdown("# Bots"),
+                            ft.Text(
+                                "Bots",
+                                theme_style=ft.TextThemeStyle.HEADLINE_LARGE,
+                            ),
+                            ft.Divider(height=1),
+                            ft.ListView(
+                                controls=[
+                                    BotListTile(info)
+                                    for info in self._notifier.state.bots
+                                ]
+                            ),
                         ]
                     ),
                 ),
