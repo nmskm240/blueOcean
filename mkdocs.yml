@@ -1,0 +1,15 @@
+site_name: blueOcean 仕様書
+site_description: blueOceanの現行スクリプトに基づく仕様書
+site_dir: site
+
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - 仕様:
+      - 全体構成: specs/system-overview.md
+      - 主要ユースケース: specs/usecases.md
+      - UI (Flet): specs/ui-flet.md
+      - データ/ストレージ: specs/data-storage.md
+      - 戦略とレジストリ: specs/strategies.md
