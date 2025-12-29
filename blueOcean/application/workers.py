@@ -8,9 +8,7 @@ from pathlib import Path
 from queue import Queue
 
 import backtrader as bt
-import pandas as pd
 import psutil
-import quantstats as qs
 from injector import Injector
 
 from blueOcean.application.di import BacktestRuntimeModule, LiveTradeRuntimeModule
@@ -30,10 +28,7 @@ class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
     def run(self):
         signal.signal(signal.SIGTERM, self._on_handle_sigterm)
 
-        try:
-            self._run()
-        finally:
-            self._create_report()
+        self._run()
 
     @abstractmethod
     def _run(self) -> None:
@@ -45,29 +40,6 @@ class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
 
     def _on_sigterm(self) -> None:
         pass
-
-    def _create_report(self) -> None:
-        df = pd.read_csv(self._run_directory / "metrics.csv")
-        if df.empty:
-            return
-
-        required_cols = {"timestamp", "analyzer", "value"}
-        if not required_cols.issubset(df.columns):
-            return
-
-        df = df[df["analyzer"] == "timereturn"].copy()
-        if df.empty:
-            return
-
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
-        df = df.sort_values("timestamp")
-
-        returns = pd.Series(df["value"].values, index=df["timestamp"])
-
-        output_path = self._run_directory / "quantstats_report.html"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        qs.reports.html(returns, output=str(output_path))
-
 
 class LiveTradeWorker(BotProcessWorker):
     def __init__(self, id: BotId, context: LiveContext):

@@ -138,6 +138,10 @@ class IBotRepository(metaclass=ABCMeta):
     @abstractmethod
     def find_by_id(self, id: BotId) -> Bot:
         raise NotImplementedError()
+    
+    @abstractmethod
+    def find_by_ids(self, *ids: BotId) -> list[Bot]:
+        raise NotImplementedError()
 
     @abstractmethod
     def save(self, bot: Bot) -> Bot:

@@ -74,3 +74,25 @@ class AccountCredentialInfo:
     api_secret: str = field(default="")
     is_sandbox: bool = field(default=True)
     label: str = field(default="")
+
+
+@dataclass(frozen=True)
+class BotInfo:
+    bot_id: str
+    label: str
+    status: str
+    mode: str
+    source: str
+    symbol: str
+    timeframe: Timeframe
+    strategy: str
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+@dataclass(frozen=True)
+class TimeReturnPoint:
+    timestamp: datetime
+    analyzer: str
+    key: str
+    value: float

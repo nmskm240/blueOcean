@@ -24,7 +24,6 @@ class RootLayout(ft.Row):
             ft.VerticalDivider(width=1),
             ft.Container(
                 expand=True,
-                alignment=ft.alignment.top_center,
                 padding=ft.padding.symmetric(horizontal=24),
                 content=ft.Container(
                     width=960,

@@ -4,7 +4,7 @@ from queue import Queue
 
 import backtrader as bt
 import duckdb
-from injector import Module, provider, singleton
+from injector import InstanceProvider, Module, provider, singleton
 from peewee import SqliteDatabase
 
 from blueOcean.application.accessors import (
@@ -90,6 +90,15 @@ class FetchModule(Module):
         binder.bind(IExchangeService, to=CcxtExchangeService)
 
 
+class BotDetailModule(Module):
+    def __init__(self, id: BotId):
+        self._id = id
+
+    def configure(self, binder):
+        binder.bind(IBotRuntimeDirectoryAccessor, to=LocalBotRuntimeDirectoryAccessor)
+        binder.bind(BotId, to=InstanceProvider(self._id))
+
+
 class IBotRunTimeModule(Module, metaclass=ABCMeta):
     def __init__(self, id: BotId, context: BotContext):
         self._id = id
@@ -103,11 +112,12 @@ class IBotRunTimeModule(Module, metaclass=ABCMeta):
             IBotRuntimeDirectoryAccessor,
             to=LocalBotRuntimeDirectoryAccessor,
         )
+        binder.bind(BotId, to=InstanceProvider(self._id))
 
     @provider
     @singleton
     def directory(self, accessor: IBotRuntimeDirectoryAccessor) -> Path:
-        return accessor.generate_directory(self._id)
+        return accessor.get_or_create_directory()
 
     @provider
     @abstractmethod

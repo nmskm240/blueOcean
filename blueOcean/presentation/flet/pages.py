@@ -2,14 +2,23 @@ from abc import ABCMeta, abstractmethod
 
 import flet as ft
 from flet_route import Basket, Params
-
+from blueOcean.domain.bot import BotId
 from blueOcean.presentation.flet.layout import RootLayout
 from blueOcean.presentation.flet.widgets import (
     AccountCredentialDialog,
     AccountListTile,
     BacktestDialog,
+    BotListTile,
+    QuantstatsReportWidget,
+    StrategyListTile,
 )
-from blueOcean.presentation.scopes import AccountPageScope, BotTopPageScope, Scope
+from blueOcean.presentation.scopes import (
+    AccountPageScope,
+    BotDetailPageScope,
+    BotTopPageScope,
+    Scope,
+)
+from blueOcean.shared.registries import StrategyRegistry
 
 
 class IPage(metaclass=ABCMeta):
@@ -32,7 +41,7 @@ class HomePage(IPage, RootLayout.IRootNavigationItem):
     @classmethod
     def render(cls, page: ft.Page, params: Params, basket: Basket) -> ft.View:
         return ft.View(
-            cls.route,
+            route=cls.route,
             controls=[
                 RootLayout(
                     index=cls.order,
@@ -57,18 +66,18 @@ class BotTopPage(IPage, RootLayout.IRootNavigationItem):
     def render(self, page: ft.Page, params: Params, basket: Basket) -> ft.View:
 
         return ft.View(
-            BotTopPage.route,
+            route=BotTopPage.route,
             floating_action_button=ft.FloatingActionButton(
                 icon=ft.Icon(ft.Icons.ADD),
                 content=ft.PopupMenuButton(
                     expand=True,
                     items=[
                         ft.PopupMenuItem(
-                            text="Backtest",
+                            content=ft.Text("Backtest"),
                             on_click=self._open_backtest,
                         ),
                         ft.PopupMenuItem(
-                            text="Live bot",
+                            content=ft.Text("Live bot"),
                         ),
                     ],
                 ),
@@ -76,20 +85,96 @@ class BotTopPage(IPage, RootLayout.IRootNavigationItem):
             controls=[
                 RootLayout(
                     index=BotTopPage.order,
-                    content=ft.Row(
+                    content=ft.Column(
                         controls=[
-                            ft.Markdown("# Bots"),
+                            ft.Text(
+                                "Bots",
+                                theme_style=ft.TextThemeStyle.HEADLINE_LARGE,
+                            ),
+                            ft.Divider(height=1),
+                            ft.ListView(
+                                controls=[
+                                    BotListTile(
+                                        info,
+                                        on_click=self._open_detail(info.bot_id),
+                                    )
+                                    for info in self._notifier.state.bots
+                                ]
+                            ),
                         ]
                     ),
                 ),
             ],
         )
-    
+
     def _open_backtest(self, e: ft.ControlEvent) -> None:
         backtest_dialog = BacktestDialog(self._scope)
         e.control.page.overlay.append(backtest_dialog)
         backtest_dialog.open = True
         e.control.page.update()
+
+    def _open_detail(self, bot_id: str):
+        def handler(e: ft.ControlEvent) -> None:
+            e.control.page.go(f"/bots/{bot_id}")
+
+        return handler
+
+
+class BotDetailPage(IPage):
+    route = "/bots/:bot_id"
+
+    def __init__(self, scope: Scope):
+        self.__parent_scope = scope
+
+    def render(self, page: ft.Page, params: Params, basket: Basket) -> ft.View:
+        bot_id = params.get("bot_id")
+        content_wrapper = ft.Container(
+            content=ft.Column(
+                controls=[ft.ProgressRing(), ft.Text("Loading...")],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                expand=True,
+            ),
+            expand=True,
+        )
+
+        def load_detail() -> None:
+            try:
+                self._scope = BotDetailPageScope(self.__parent_scope, BotId(bot_id))
+                self._notifier = self._scope.notifier
+                state = self._notifier.state
+                content_wrapper.content = ft.Column(
+                    controls=[
+                        ft.Text(
+                            (
+                                state.info.label
+                                or state.info.symbol
+                                or state.info.bot_id
+                                if state.info
+                                else bot_id
+                            ),
+                            theme_style=ft.TextThemeStyle.HEADLINE_LARGE,
+                        ),
+                        ft.Divider(height=1),
+                        QuantstatsReportWidget(state.time_returns),
+                    ],
+                    expand=True,
+                )
+            except Exception as exc:
+                content_wrapper.content = ft.Text(str(exc))
+            page.update()
+
+        page.run_thread(load_detail)
+
+        return ft.View(
+            route=f"/bots/{bot_id}",
+            controls=[
+                RootLayout(
+                    index=BotTopPage.order,
+                    content=content_wrapper,
+                ),
+            ],
+        )
 
 
 class AccountPage(IPage, RootLayout.IRootNavigationItem):
@@ -106,7 +191,7 @@ class AccountPage(IPage, RootLayout.IRootNavigationItem):
 
     def render(self, page: ft.Page, params: Params, basket: Basket) -> ft.View:
         return ft.View(
-            self.route,
+            route=self.route,
             controls=[
                 RootLayout(
                     index=self.order,
@@ -156,7 +241,7 @@ class StrategiesPage(IPage, RootLayout.IRootNavigationItem):
     @classmethod
     def render(cls, page: ft.Page, params: Params, basket: Basket) -> ft.View:
         return ft.View(
-            cls.route,
+            route=cls.route,
             controls=[
                 RootLayout(
                     index=cls.order,

@@ -10,12 +10,20 @@ from blueOcean.application.dto import (
 )
 from blueOcean.application.usecases import (
     FetchAccountsUsecase,
+    FetchBotsUsecase,
+    FetchBotTimeReturnsUsecase,
     FetchFetchableExchangesUsecase,
     FetchOhlcvUsecase,
     LaunchBotUsecase,
     RegistAccountUsecase,
 )
-from blueOcean.presentation.states import BacktestDialogState, OhlcvFetchDialogState
+from blueOcean.domain.bot import BotId
+from blueOcean.presentation.states import (
+    BacktestDialogState,
+    BotDetailPageState,
+    BotTopPageState,
+    OhlcvFetchDialogState,
+)
 from blueOcean.shared.registries import StrategyRegistry
 
 
@@ -130,5 +138,34 @@ class AccountCredentialDialogNotifier:
 
 class BotTopPageNotifier:
     @inject
-    def __init__(self):
-        pass
+    def __init__(self, fetch_usecase: FetchBotsUsecase):
+        self._fetch_usecase = fetch_usecase
+        self._state = BotTopPageState(bots=self._fetch_usecase.execute())
+
+    @property
+    def state(self) -> BotTopPageState:
+        return self._state
+
+    def update(self):
+        self._state = BotTopPageState(bots=self._fetch_usecase.execute())
+
+
+class BotDetailPageNotifier:
+    @inject
+    def __init__(
+        self,
+        bot_id: BotId,
+        fetch_bots_usecase: FetchBotsUsecase,
+        fetch_time_returns_usecase: FetchBotTimeReturnsUsecase,
+    ):
+        self._id = bot_id
+        self._fetch_bots_usecase = fetch_bots_usecase
+        self._fetch_time_returns_usecase = fetch_time_returns_usecase
+        self._state = BotDetailPageState(
+            info=self._fetch_bots_usecase.execute(bot_id)[0],
+            time_returns=self._fetch_time_returns_usecase.execute(),
+        )
+
+    @property
+    def state(self) -> BotDetailPageState:
+        return self._state

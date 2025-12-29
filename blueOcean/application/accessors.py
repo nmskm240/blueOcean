@@ -3,16 +3,21 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 
-from blueOcean.domain.bot import BotId
+import pandas as pd
 
 
 class IBotRuntimeDirectoryAccessor(metaclass=ABCMeta):
+    @property
     @abstractmethod
-    def generate_directory(self, bot_id: BotId) -> Path:
+    def metrics(self) -> pd.DataFrame:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_or_create_directory(self) -> Path:
         raise NotImplementedError()
 
 
-class IExchangeSymbolAccessor(metaclass=ABCMeta):    
+class IExchangeSymbolAccessor(metaclass=ABCMeta):
     @property
     @abstractmethod
     def exchanges(self) -> list[str]:
