@@ -191,3 +191,20 @@ class BotRepository(IBotRepository):
         bot_entity = query.get()
         context_entity = bot_entity.botcontextentity
         return to_domain(bot_entity, context_entity)
+    
+    def find_by_ids(self, *ids: BotId) -> list[Bot]:
+        if not ids:
+            return []
+
+        id_values = [id.value for id in ids]
+        query = (
+            BotEntity
+            .select(BotEntity, BotContextEntity)
+            .join(BotContextEntity)
+            .where(BotEntity.id.in_(id_values))
+        )
+        bots: list[Bot] = []
+        for bot_entity in query:
+            context_entity = bot_entity.botcontextentity
+            bots.append(to_domain(bot_entity, context_entity))
+        return bots

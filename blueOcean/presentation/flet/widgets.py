@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import base64
 import datetime
+import io
 from typing import Any, Callable, Type
 
 import backtrader as bt
 import ccxt
 import flet as ft
+import matplotlib.pyplot as plt
+import pandas as pd
+import quantstats as qs
 
 from blueOcean.application.accessors import IExchangeSymbolAccessor
-from blueOcean.application.dto import AccountCredentialInfo, BotInfo
+from blueOcean.application.dto import AccountCredentialInfo, BotInfo, TimeReturnPoint
 from blueOcean.domain.ohlcv import Timeframe
 from blueOcean.presentation.scopes import (
     AccountCredentialDialogScope,
@@ -29,7 +34,6 @@ class RootAppBar(ft.AppBar):
         self.actions = [
             ft.IconButton(
                 icon=ft.Icons.CACHED,
-                content=ft.Text("価格データ取得"),
                 on_click=self._open_fetcher_dialog,
             )
         ]
@@ -196,6 +200,123 @@ class BotListTile(ft.ListTile):
             leading=ft.Icon(icon),
             on_click=on_click,
         )
+
+
+class StrategyListTile(ft.ListTile):
+    def __init__(
+        self,
+        name: str,
+        strategy_cls: Type[bt.Strategy] | None = None,
+        on_click: ft.OptionalControlEventCallable = None,
+    ):
+        subtitle = strategy_cls.__module__ if strategy_cls else None
+        super().__init__(
+            title=ft.Text(name),
+            subtitle=ft.Text(subtitle) if subtitle else None,
+            leading=ft.Icon(ft.Icons.PATTERN),
+            on_click=on_click,
+        )
+
+
+# region Reports
+
+
+class QuantstatsReportWidget(ft.Column):
+    def __init__(self, time_returns: list[TimeReturnPoint]):
+        super().__init__(spacing=12, expand=True)
+        self._time_returns = time_returns
+        self.controls = self._build_controls()
+
+    def _build_controls(self) -> list[ft.Control]:
+        returns = self._build_returns()
+        if returns is None or returns.empty:
+            return [ft.Text("Report not found.")]
+
+        report = self._build_report(returns)
+        report_items = [
+            ft.Text(f"Total return: {self._format_value(report['total_return'], True)}"),
+            ft.Text(f"CAGR: {self._format_value(report['cagr'], True)}"),
+            ft.Text(f"Sharpe: {self._format_value(report['sharpe'], False)}"),
+            ft.Text(f"Sortino: {self._format_value(report['sortino'], False)}"),
+            ft.Text(f"Volatility: {self._format_value(report['volatility'], True)}"),
+            ft.Text(
+                f"Max drawdown: {self._format_value(report['max_drawdown'], True)}"
+            ),
+            ft.Text(f"Win rate: {self._format_value(report['win_rate'], True)}"),
+        ]
+
+        return [
+            ft.Column(controls=report_items, spacing=4),
+            ft.Divider(height=1),
+            self._build_equity_image(returns),
+            self._build_drawdown_image(returns),
+        ]
+
+    def _build_returns(self) -> pd.Series | None:
+        if not self._time_returns:
+            return None
+        returns = pd.Series(
+            [point.value for point in self._time_returns],
+            index=pd.to_datetime([point.timestamp for point in self._time_returns]),
+            dtype=float,
+        ).sort_index()
+        return returns
+
+    def _build_report(self, returns: pd.Series) -> dict[str, float | None]:
+        return {
+            "total_return": self._safe_stat(qs.stats.comp, returns),
+            "cagr": self._safe_stat(qs.stats.cagr, returns),
+            "sharpe": self._safe_stat(qs.stats.sharpe, returns),
+            "sortino": self._safe_stat(qs.stats.sortino, returns),
+            "volatility": self._safe_stat(qs.stats.volatility, returns),
+            "max_drawdown": self._safe_stat(qs.stats.max_drawdown, returns),
+            "win_rate": self._safe_stat(qs.stats.win_rate, returns),
+        }
+
+    def _build_equity_image(self, returns: pd.Series) -> ft.Image:
+        equity = (1 + returns).cumprod()
+        return self._build_line_chart(
+            equity.index,
+            equity.values,
+            title="Equity Curve",
+        )
+
+    def _build_drawdown_image(self, returns: pd.Series) -> ft.Image:
+        equity = (1 + returns).cumprod()
+        drawdown = equity / equity.cummax() - 1
+        return self._build_line_chart(
+            drawdown.index,
+            drawdown.values,
+            title="Drawdown",
+        )
+
+    def _build_line_chart(self, x, y, title: str) -> ft.Image:
+        fig, ax = plt.subplots(figsize=(8, 2.6))
+        ax.plot(x, y, linewidth=1.4)
+        ax.set_title(title)
+        ax.grid(True, linestyle="--", alpha=0.4)
+        fig.tight_layout()
+
+        buffer = io.BytesIO()
+        fig.savefig(buffer, format="png", dpi=120)
+        plt.close(fig)
+        buffer.seek(0)
+        encoded = base64.b64encode(buffer.read()).decode("ascii")
+        return ft.Image(src=encoded, expand=True)
+
+    def _safe_stat(self, fn, *args, **kwargs) -> float | None:
+        try:
+            value = fn(*args, **kwargs)
+        except Exception:
+            return None
+        if value is None:
+            return None
+        return float(value)
+
+    def _format_value(self, value: float | None, as_percent: bool) -> str:
+        if value is None:
+            return "-"
+        return f"{value:.2%}" if as_percent else f"{value:.3f}"
 
 
 # region Field

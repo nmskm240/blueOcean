@@ -88,3 +88,11 @@ class BotInfo:
     strategy: str
     started_at: datetime | None
     finished_at: datetime | None
+
+
+@dataclass(frozen=True)
+class TimeReturnPoint:
+    timestamp: datetime
+    analyzer: str
+    key: str
+    value: float
