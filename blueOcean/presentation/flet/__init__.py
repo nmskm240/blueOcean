@@ -24,6 +24,13 @@ def run(page: ft.Page):
             ),
         ),
         path(
+            BotDetailPage.route,
+            clear=True,
+            view=lambda page, params, basket: BotDetailPage(app_scope).render(
+                page, params, basket
+            ),
+        ),
+        path(
             AccountPage.route,
             clear=True,
             view=lambda page, params, basket: AccountPage(app_scope).render(

@@ -128,32 +128,50 @@ class BotDetailPage(IPage):
 
     def render(self, page: ft.Page, params: Params, basket: Basket) -> ft.View:
         bot_id = params.get("bot_id")
-        self._scope = BotDetailPageScope(self.__parent_scope, BotId(bot_id))
-        self._notifier = self._scope.notifier
-        state = self._notifier.state
-
-        content = ft.Column(
-            controls=[
-                ft.Text(
-                    (
-                        state.info.label or state.info.symbol or state.info.bot_id
-                        if state.info
-                        else bot_id
-                    ),
-                    theme_style=ft.TextThemeStyle.HEADLINE_LARGE,
-                ),
-                ft.Divider(height=1),
-                QuantstatsReportWidget(state.time_returns),
-            ],
+        content_wrapper = ft.Container(
+            content=ft.Column(
+                controls=[ft.ProgressRing(), ft.Text("Loading...")],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                expand=True,
+            ),
             expand=True,
         )
+
+        def load_detail() -> None:
+            try:
+                self._scope = BotDetailPageScope(self.__parent_scope, BotId(bot_id))
+                self._notifier = self._scope.notifier
+                state = self._notifier.state
+                content_wrapper.content = ft.Column(
+                    controls=[
+                        ft.Text(
+                            (
+                                state.info.label
+                                or state.info.symbol
+                                or state.info.bot_id
+                                if state.info
+                                else bot_id
+                            ),
+                            theme_style=ft.TextThemeStyle.HEADLINE_LARGE,
+                        ),
+                        ft.Divider(height=1),
+                        QuantstatsReportWidget(state.time_returns),
+                    ],
+                    expand=True,
+                )
+            except Exception as exc:
+                content_wrapper.content = ft.Text(str(exc))
+            page.update()
+
+        page.run_thread(load_detail)
 
         return ft.View(
             route=f"/bots/{bot_id}",
             controls=[
                 RootLayout(
                     index=BotTopPage.order,
-                    content=content,
+                    content=content_wrapper,
                 ),
             ],
         )
