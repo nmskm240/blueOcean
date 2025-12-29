@@ -1,7 +1,7 @@
 import flet as ft
 from flet_route import Routing, path
 
-from blueOcean.presentation.flet.pages import (
+from blueOcean.presentation.pages import (
     AccountPage,
     BotDetailPage,
     BotTopPage,
