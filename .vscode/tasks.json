@@ -8,7 +8,7 @@
             "args": [
                 "nbconvert",
                 "--to", "markdown",
-                "--execute", "--Exporter.preprocessors='[\"blueOcean.presentation.jupyter.preprocessor.MarkdownInlineFigurePreprocessor\", \"blueOcean.presentation.jupyter.preprocessor.MarkdownHtmlTablePreprocessor\"]'",
+                "--execute", "--Exporter.preprocessors='[\"blueOcean.application.preprocessor.MarkdownInlineFigurePreprocessor\", \"blueOcean.application.preprocessor.MarkdownHtmlTablePreprocessor\"]'",
                 "--output-dir", "notebooks/out",
                 "${file}"
             ]

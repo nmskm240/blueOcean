@@ -1,14 +1,14 @@
 import flet as ft
 from flet_route import Routing, path
 
-from blueOcean.presentation.flet.pages import (
+from blueOcean.presentation.pages import (
     AccountPage,
     BotDetailPage,
     BotTopPage,
     HomePage,
     StrategiesPage,
 )
-from blueOcean.presentation.flet.widgets import RootAppBar
+from blueOcean.presentation.widgets import RootAppBar
 from blueOcean.presentation.scopes import AppScope
 
 
@@ -46,8 +46,3 @@ def run(page: ft.Page):
     )
     page.scroll = ft.ScrollMode.AUTO
     page.go(page.route)
-
-
-__all__ = [
-    run,
-]

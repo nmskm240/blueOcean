@@ -7,141 +7,118 @@ skinparam componentStyle rectangle
 package "blueOcean" {
 
   package "domain" {
-    [account]
-    [ohlcv]
+    [domain.account]
+    [domain.ohlcv]
+    [domain.bot]
   }
 
   package "core" {
-    package "strategies" {
-      [Strategy]
-    }
+    [core.strategies]
+  }
+
+  package "shared" {
+    [shared.registries]
   }
 
   package "infra" {
     package "database" {
-      package "entities" {
-        [DB Entities]
-      }
-      package "repositories" {
-        [DB Repositories]
-      }
+      [db.entities]
+      [db.repositories]
+      [db.mapper]
     }
 
-    package "fetchers" {
-      [MarketDataFetchers]
-    }
-
-    package "logging" {
-      [Logging]
-    }
-
-    package "stores" {
-      [Stores]
-    }
+    [infra.fetchers]
+    [infra.settings]
+    [infra.logging]
+    [infra.stores]
+    [infra.factories]
+    [infra.accessors]
   }
 
   package "application" {
-    package "decorators" {
-      [strategy_page]
-      [registry]
-    }
-
-    package "services" {
-      [WorkerService]
-    }
-
-    package "analyzers" {
-      [Analyzers]
-    }
-
-    package "broker" {
-      [CcxtBroker]
-      [CcxtSpotStore]
-    }
-
-    package "di" {
-      [DI Container]
-    }
-
-    package "dto" {
-      [DTOs]
-    }
-
-    package "feed" {
-      [BacktraderFeeds]
-    }
-
-    package "store" {
-      [ApplicationStores]
-    }
-
-    package "usecases" {
-      [UseCases]
-    }
-
-    package "workers" {
-      [BacktestWorker]
-      [RealTradeWorker]
-    }
+    [app.accessors]
+    [app.analyzers]
+    [app.broker]
+    [app.di]
+    [app.dto]
+    [app.factories]
+    [app.feed]
+    [app.mapper]
+    [app.preprocessor]
+    [app.services]
+    [app.store]
+    [app.usecases]
+    [app.workers]
   }
 
   package "presentation" {
-    package "jupyter" {
-      package "preprocessor" {
-        [MarkdownInlineFigurePreprocessor]
-      }
-    }
-
-    package "streamlit" {
-      package "contents" {
-        [StreamlitPages]
-      }
-      package "widgets" {
-        [StreamlitWidgets]
-      }
-    }
+    [ui.app]
+    [ui.layout]
+    [ui.pages]
+    [ui.widgets]
+    [ui.states]
+    [ui.scopes]
+    [ui.notifiers]
+    [ui.utils]
   }
 }
 
 ' 依存関係（レイヤ間の方向） -------------------------------------------
 
-[Strategy] --> [account]
-[Strategy] --> [ohlcv]
+[core.strategies] --> [domain.account]
+[core.strategies] --> [domain.ohlcv]
 
-[DB Repositories] --> [DB Entities]
-[DB Repositories] --> [account]
-[DB Repositories] --> [ohlcv]
+[db.repositories] --> [db.entities]
+[db.repositories] --> [domain.account]
+[db.repositories] --> [domain.ohlcv]
+[db.repositories] --> [domain.bot]
 
-[MarketDataFetchers] --> [Stores]
-[Stores] --> [DB Repositories]
+[infra.fetchers] --> [infra.stores]
+[infra.stores] --> [db.repositories]
 
-[BacktraderFeeds] --> [Stores]
-[BacktraderFeeds] --> [Strategy]
+[app.feed] --> [infra.stores]
+[app.feed] --> [core.strategies]
 
-[CcxtBroker] --> [CcxtSpotStore]
-[CcxtBroker] --> [BacktraderFeeds]
+[app.broker] --> [app.feed]
 
-[UseCases] --> [Strategy]
-[UseCases] --> [DB Repositories]
-[UseCases] --> [BacktraderFeeds]
-[UseCases] --> [CcxtBroker]
-[UseCases] --> [Analyzers]
+[app.usecases] --> [core.strategies]
+[app.usecases] --> [db.repositories]
+[app.usecases] --> [app.feed]
+[app.usecases] --> [app.broker]
+[app.usecases] --> [app.analyzers]
 
-[WorkerService] --> [BacktestWorker]
-[WorkerService] --> [RealTradeWorker]
+[app.services] --> [app.workers]
+[app.workers] --> [app.usecases]
 
-[BacktestWorker] --> [UseCases]
-[RealTradeWorker] --> [UseCases]
+[app.di] --> [app.usecases]
+[app.di] --> [app.services]
+[app.di] --> [app.workers]
+[app.di] --> [app.factories]
+[app.di] --> [app.accessors]
+[app.di] --> [app.broker]
+[app.di] --> [app.feed]
+[app.di] --> [app.store]
+[app.di] --> [db.repositories]
 
-[strategy_page] --> [StreamlitPages]
-[strategy_page] --> [MarkdownInlineFigurePreprocessor]
+[ui.scopes] --> [app.di]
+[ui.scopes] --> [app.accessors]
 
-[MarkdownInlineFigurePreprocessor] --> [StreamlitPages]
+[ui.notifiers] --> [app.usecases]
+[ui.notifiers] --> [app.dto]
+[ui.notifiers] --> [ui.states]
 
-[StreamlitPages] --> [UseCases]
-[StreamlitWidgets] --> [UseCases]
+[ui.pages] --> [ui.layout]
+[ui.pages] --> [ui.widgets]
+[ui.pages] --> [ui.scopes]
+[ui.pages] --> [shared.registries]
+[ui.pages] --> [domain.bot]
 
-[Logging] --> [UseCases]
-[Logging] --> [Workers]
+[ui.widgets] --> [ui.scopes]
+[ui.widgets] --> [app.accessors]
+[ui.widgets] --> [app.dto]
+[ui.widgets] --> [shared.registries]
+[ui.widgets] --> [domain.ohlcv]
+
+[infra.logging] --> [db.repositories]
 
 @enduml
