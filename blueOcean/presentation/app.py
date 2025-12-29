@@ -8,7 +8,7 @@ from blueOcean.presentation.flet.pages import (
     HomePage,
     StrategiesPage,
 )
-from blueOcean.presentation.flet.widgets import RootAppBar
+from blueOcean.presentation.widgets import RootAppBar
 from blueOcean.presentation.scopes import AppScope
 
 
@@ -46,8 +46,3 @@ def run(page: ft.Page):
     )
     page.scroll = ft.ScrollMode.AUTO
     page.go(page.route)
-
-
-__all__ = [
-    run,
-]

@@ -3,8 +3,8 @@ from abc import ABCMeta, abstractmethod
 import flet as ft
 from flet_route import Basket, Params
 from blueOcean.domain.bot import BotId
-from blueOcean.presentation.flet.layout import RootLayout
-from blueOcean.presentation.flet.widgets import (
+from blueOcean.presentation.layout import RootLayout
+from blueOcean.presentation.widgets import (
     AccountCredentialDialog,
     AccountListTile,
     BacktestDialog,
