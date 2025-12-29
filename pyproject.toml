@@ -20,6 +20,7 @@ dependencies = [
     "nbconvert",
     "ipykernel",
     "flet",
+    "flet-desktop",
     "flet-route",
     "quantstats",
     "logging",

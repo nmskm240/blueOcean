@@ -8,7 +8,7 @@
             "module": "flet.cli",
             "args": [
                 "run",
-                "app.py",
+                "main.py",
                 "--web",
                 "--port",
                 "8501"
