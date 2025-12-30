@@ -21,7 +21,7 @@ from blueOcean.application.services import (
     CcxtExchangeService,
     IExchangeService,
 )
-from blueOcean.application.store import IStore
+from blueOcean.application.store import IStore, IStoreFactory
 from blueOcean.domain.bot import (
     BacktestContext,
     BotContext,
@@ -42,8 +42,7 @@ from blueOcean.infra.database.entities import (
     proxy,
 )
 from blueOcean.infra.database.repositories import BotRepository, OhlcvRepository
-from blueOcean.infra.factories import OhlcvFetcherFactory
-from blueOcean.infra.stores import CcxtSpotStore
+from blueOcean.infra.factories import OhlcvFetcherFactory, StoreFactory
 
 
 class HistoricalDataModule(Module):
@@ -132,7 +131,7 @@ class LiveTradeRuntimeModule(IBotRunTimeModule):
     def configure(self, binder):
         super().configure(binder)
 
-        binder.bind(IStore, to=CcxtSpotStore)
+        binder.bind(IStoreFactory, to=StoreFactory)
         binder.bind(Queue, to=Queue, scope=singleton)
         binder.bind(bt.feed.DataBase, to=QueueDataFeed)
         binder.bind(bt.broker.BrokerBase, to=Broker)
@@ -155,6 +154,10 @@ class LiveTradeRuntimeModule(IBotRunTimeModule):
         )
         cerebro.addstrategy(self._context.strategy_cls, **self._context.strategy_args)
         return cerebro
+
+    @provider
+    def store(self, factory: IStoreFactory) -> IStore:
+        return factory.create(self._context.account_id, self._context.symbol)
 
 
 class BacktestRuntimeModule(IBotRunTimeModule):

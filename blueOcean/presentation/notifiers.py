@@ -1,6 +1,7 @@
 import dataclasses
 import datetime
 
+import ccxt
 from injector import inject
 
 from blueOcean.application.dto import (
@@ -19,6 +20,7 @@ from blueOcean.application.usecases import (
 )
 from blueOcean.domain.bot import BotId
 from blueOcean.presentation.states import (
+    AccountCredentialDialogState,
     BacktestDialogState,
     BotDetailPageState,
     BotTopPageState,
@@ -120,19 +122,21 @@ class AccountPageNotifier:
 class AccountCredentialDialogNotifier:
     @inject
     def __init__(self, regist_usecase: RegistAccountUsecase):
-        # TODO: StateとDTOを分ける
-        self._state = AccountCredentialInfo()
+        self._state = AccountCredentialDialogState(
+            exchange_options=sorted({*ccxt.exchanges, "oanda"}),
+        )
         self._regist_usecase = regist_usecase
 
     @property
-    def state(self):
+    def state(self) -> AccountCredentialDialogState:
         return self._state
 
     def update(self, **kwargs):
         self._state = dataclasses.replace(self._state, **kwargs)
 
     def submit(self) -> str:
-        res = self._regist_usecase.execute(self._state)
+        payload = self._state.drift
+        res = self._regist_usecase.execute(payload)
         return res.value
 
 

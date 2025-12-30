@@ -16,6 +16,7 @@ dependencies = [
     "ccxt==4.5.10",
     "backtrader",
     "backtrader_plotting",
+    "oandapyV20",
     "nbformat>=4.2.0",
     "nbconvert",
     "ipykernel",

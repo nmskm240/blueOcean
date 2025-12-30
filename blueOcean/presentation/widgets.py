@@ -538,11 +538,12 @@ class AccountCredentialDialog(ft.AlertDialog):
         self._notifier = self._scope.notifier
         self._on_submit = on_submit
         self._on_cancel = on_cancel
+        state = self._notifier.state
 
         self.label_field = ft.TextField(label="label")
         self.exchange_dropdown = ft.Dropdown(
             label="exchange",
-            options=[ft.DropdownOption(key=e, text=e) for e in ccxt.exchanges],
+            options=[ft.DropdownOption(key=e, text=e) for e in state.exchange_options],
         )
         self.key_field = ft.TextField(label="api key")
         self.secret_field = ft.TextField(
@@ -573,11 +574,13 @@ class AccountCredentialDialog(ft.AlertDialog):
 
     def _handle_submit(self, _: ft.ControlEvent) -> None:
         self._notifier.update(
-            exchange_name=self.exchange_dropdown.value,
-            label=self.label_field.value,
-            api_key=self.key_field.value,
-            api_secret=self.secret_field.value,
-            is_sandbox=self.sandbox_switch.value,
+            drift=AccountCredentialInfo(
+                exchange_name=self.exchange_dropdown.value,
+                label=self.label_field.value,
+                api_key=self.key_field.value,
+                api_secret=self.secret_field.value,
+                is_sandbox=self.sandbox_switch.value,
+            )
         )
         res = self._notifier.submit()
         if self._on_submit is not None:
