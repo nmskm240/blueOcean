@@ -2,6 +2,8 @@ from abc import ABCMeta, abstractmethod
 
 from backtrader import Order, Position
 
+from blueOcean.domain.account import AccountId
+
 
 class IStore(metaclass=ABCMeta):
     def __init__(self, symbol: str):
@@ -34,5 +36,5 @@ class IStore(metaclass=ABCMeta):
 
 class IStoreFactory:
     @abstractmethod
-    def create(self, source: str) -> IStore:
+    def create(self, account_id: AccountId, symbol: str) -> IStore:
         raise NotImplementedError()
