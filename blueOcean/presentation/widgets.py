@@ -57,34 +57,8 @@ class TimeframeDropdown(ft.Dropdown):
         )
 
     @property
-    def value(self) -> Timeframe | None:
-        raw = ft.Dropdown.value.fget(self)
-        if raw is None:
-            return None
-        if isinstance(raw, str):
-            if raw in Timeframe.__members__:
-                return Timeframe[raw]
-            try:
-                return Timeframe.from_compression(int(raw))
-            except (ValueError, TypeError):
-                return None
-        if isinstance(raw, int):
-            try:
-                return Timeframe.from_compression(raw)
-            except ValueError:
-                return None
-        return None
-
-    @value.setter
-    def value(self, value: Timeframe | str | int | None):
-        if isinstance(value, Timeframe):
-            raw_value = value.name
-        elif isinstance(value, int):
-            raw_value = Timeframe.from_compression(value).name
-        else:
-            raw_value = value
-        ft.Dropdown.value.fset(self, raw_value)
-
+    def parsed_value(self) -> Timeframe:
+        return Timeframe[self.value]
 
 class ExchangeDropdown(ft.Dropdown):
     def __init__(self, value: str | None = None, exchanges: list[str] | None = None):
@@ -92,8 +66,6 @@ class ExchangeDropdown(ft.Dropdown):
         super().__init__(
             label="exchange",
             value=value or "",
-            # TODO: つかえない取引所を選択肢から外す
-            # TODO: ccxt以外にも対応する
             options=[ft.DropdownOption(key=e, text=e) for e in options],
             expand=True,
         )
@@ -189,9 +161,9 @@ class BotListTile(ft.ListTile):
         icon = (
             ft.Icons.PLAY_ARROW
             if info.status == "RUNNING"
-            else ft.Icons.STOP_CIRCLE
-            if info.status == "STOPPED"
-            else ft.Icons.SMART_TOY
+            else (
+                ft.Icons.STOP_CIRCLE if info.status == "STOPPED" else ft.Icons.SMART_TOY
+            )
         )
 
         super().__init__(
@@ -234,7 +206,9 @@ class QuantstatsReportWidget(ft.Column):
 
         report = self._build_report(returns)
         report_items = [
-            ft.Text(f"Total return: {self._format_value(report['total_return'], True)}"),
+            ft.Text(
+                f"Total return: {self._format_value(report['total_return'], True)}"
+            ),
             ft.Text(f"CAGR: {self._format_value(report['cagr'], True)}"),
             ft.Text(f"Sharpe: {self._format_value(report['sharpe'], False)}"),
             ft.Text(f"Sortino: {self._format_value(report['sortino'], False)}"),
@@ -424,7 +398,7 @@ class BacktestDialog(ft.AlertDialog):
             self.strategy_dropdown.value = self.strategy_dropdown.options[0].key
 
         self._set_param_field(self.strategy_dropdown.value)
-        self.strategy_dropdown.on_change = self._on_strategy_change
+        self.strategy_dropdown.on_select = self._on_strategy_change
 
         self.content = ft.Column(
             [
@@ -454,8 +428,8 @@ class BacktestDialog(ft.AlertDialog):
         else:
             self.param_container.content = ft.Text("No strategy available.")
 
-    def _on_strategy_change(self, _: ft.ControlEvent) -> None:
-        self._set_param_field(self.strategy_dropdown.value)
+    def _on_strategy_change(self, e: ft.ControlEvent) -> None:
+        self._set_param_field(e.control.value)
         self.param_container.update()
 
     def _on_cancel(self, _: ft.ControlEvent):
@@ -470,7 +444,7 @@ class BacktestDialog(ft.AlertDialog):
         self._notifier.update(
             source=exchange,
             symbol=symbol,
-            timeframe=self.timeframe_dropdown.value,
+            timeframe=self.timeframe_dropdown.parsed_value,
             strategy=self.strategy_dropdown.value,
             strategy_args=strategy_args,
             start_date=start_date,
@@ -646,12 +620,12 @@ class DateRangePicker(ft.Row):
         )
 
         self.start_button = ft.OutlinedButton(
-            text=self._label_start(),
+            content=self._label_start(),
             icon=ft.Icons.EVENT,
             on_click=lambda _: self._open(self.start_picker),
         )
         self.end_button = ft.OutlinedButton(
-            text=self._label_end(),
+            content=self._label_end(),
             icon=ft.Icons.EVENT,
             on_click=lambda _: self._open(self.end_picker),
         )
@@ -681,9 +655,9 @@ class DateRangePicker(ft.Row):
         if self.end_date and self.start_date and self.start_date > self.end_date:
             self.end_date = self.start_date
             self.end_picker.value = self.end_date
-            self.end_button.text = self._label_end()
+            self.end_button.content = self._label_end()
 
-        self.start_button.text = self._label_start()
+        self.start_button.content = self._label_start()
         self._emit_change()
 
     def _on_end_change(self, e: ft.ControlEvent):
@@ -693,9 +667,9 @@ class DateRangePicker(ft.Row):
         if self.start_date and self.end_date and self.end_date < self.start_date:
             self.start_date = self.end_date
             self.start_picker.value = self.start_date
-            self.start_button.text = self._label_start()
+            self.start_button.content = self._label_start()
 
-        self.end_button.text = self._label_end()
+        self.end_button.content = self._label_end()
         self._emit_change()
 
     def _emit_change(self):
@@ -720,7 +694,7 @@ class ExchangeSymbolPicker(ft.Row):
         self.exchange_dropdown = ft.Dropdown(
             label="exchange",
             options=[ft.DropdownOption(key=e, text=e) for e in accessor.exchanges],
-            on_change=self._handle_changed_exchange,
+            on_select=self._handle_changed_exchange,
             expand=True,
         )
         self.symbol_dropdown = ft.Dropdown(
