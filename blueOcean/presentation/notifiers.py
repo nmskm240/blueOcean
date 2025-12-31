@@ -14,6 +14,11 @@ from blueOcean.application.usecases import (
     FetchBotTimeReturnsUsecase,
     FetchFetchableExchangesUsecase,
     FetchOhlcvUsecase,
+    FetchPlaygroundNotebooksUsecase,
+    FetchPlaygroundRunDetailUsecase,
+    FetchPlaygroundRunsUsecase,
+    ExecutePlaygroundNotebookUsecase,
+    InspectPlaygroundNotebookParametersUsecase,
     LaunchBotUsecase,
     RegistAccountUsecase,
 )
@@ -23,6 +28,9 @@ from blueOcean.presentation.states import (
     BotDetailPageState,
     BotTopPageState,
     OhlcvFetchDialogState,
+    PlaygroundHistoryDetailPageState,
+    PlaygroundHistoryPageState,
+    PlaygroundPageState,
 )
 from blueOcean.shared.registries import StrategyRegistry
 
@@ -169,3 +177,116 @@ class BotDetailPageNotifier:
     @property
     def state(self) -> BotDetailPageState:
         return self._state
+
+
+class PlaygroundPageNotifier:
+    @inject
+    def __init__(
+        self,
+        fetch_notebooks_usecase: FetchPlaygroundNotebooksUsecase,
+        inspect_parameters_usecase: InspectPlaygroundNotebookParametersUsecase,
+        execute_usecase: ExecutePlaygroundNotebookUsecase,
+    ):
+        self._fetch_notebooks_usecase = fetch_notebooks_usecase
+        self._inspect_parameters_usecase = inspect_parameters_usecase
+        self._execute_usecase = execute_usecase
+
+        notebooks = self._fetch_notebooks_usecase.execute()
+        self._state = PlaygroundPageState(
+            notebooks=notebooks,
+            selected_notebook=notebooks[0] if notebooks else None,
+        )
+
+    @property
+    def state(self) -> PlaygroundPageState:
+        return self._state
+
+    def update(self, **kwargs) -> None:
+        self._state = dataclasses.replace(self._state, **kwargs)
+
+    def refresh_notebooks(self) -> None:
+        notebooks = self._fetch_notebooks_usecase.execute()
+        selected = self._state.selected_notebook
+        if selected not in notebooks:
+            selected = notebooks[0] if notebooks else None
+        self._state = dataclasses.replace(
+            self._state,
+            notebooks=notebooks,
+            selected_notebook=selected,
+        )
+
+    def select_notebook(self, notebook_name: str | None) -> None:
+        if not notebook_name:
+            self.update(selected_notebook=None, parameters=[], parameter_values={})
+            return
+        parameters = self._inspect_parameters_usecase.execute(notebook_name)
+        values = {
+            param.name: str(param.default) if param.default is not None else \"\"
+            for param in parameters
+        }
+        self.update(
+            selected_notebook=notebook_name,
+            parameters=parameters,
+            parameter_values=values,
+            error_message=None,
+        )
+
+    def execute(self) -> PlaygroundPageState:
+        if not self._state.selected_notebook:
+            self.update(error_message=\"ノートブックが選択されていません。\")
+            return self._state
+        parameters = {
+            key: self._parse_value(value)
+            for key, value in self._state.parameter_values.items()
+        }
+        self.update(is_loading=True, error_message=None)
+        run_info = self._execute_usecase.execute(
+            self._state.selected_notebook, parameters
+        )
+        self.update(
+            markdown=run_info.markdown,
+            is_loading=False,
+        )
+        return self._state
+
+    @staticmethod
+    def _parse_value(value: str) -> object:
+        if value == \"\":
+            return None
+        for caster in (int, float):
+            try:
+                return caster(value)
+            except ValueError:
+                continue
+        if value.lower() in {\"true\", \"false\"}:
+            return value.lower() == \"true\"
+        return value
+
+
+class PlaygroundHistoryPageNotifier:
+    @inject
+    def __init__(self, fetch_runs_usecase: FetchPlaygroundRunsUsecase):
+        self._fetch_runs_usecase = fetch_runs_usecase
+        self._state = PlaygroundHistoryPageState(runs=self._fetch_runs_usecase.execute())
+
+    @property
+    def state(self) -> PlaygroundHistoryPageState:
+        return self._state
+
+    def refresh(self) -> None:
+        self._state = PlaygroundHistoryPageState(runs=self._fetch_runs_usecase.execute())
+
+
+class PlaygroundHistoryDetailPageNotifier:
+    @inject
+    def __init__(self, fetch_detail_usecase: FetchPlaygroundRunDetailUsecase):
+        self._fetch_detail_usecase = fetch_detail_usecase
+        self._state = PlaygroundHistoryDetailPageState()
+
+    @property
+    def state(self) -> PlaygroundHistoryDetailPageState:
+        return self._state
+
+    def load(self, run_id: str) -> None:
+        run = self._fetch_detail_usecase.execute(run_id)
+        self._state = PlaygroundHistoryDetailPageState(run=run)

@@ -10,11 +10,13 @@ from peewee import SqliteDatabase
 from blueOcean.application.accessors import (
     IBotRuntimeDirectoryAccessor,
     IExchangeSymbolAccessor,
+    INotebookDirectoryAccessor,
 )
 from blueOcean.application.analyzers import StreamingAnalyzer
 from blueOcean.application.broker import Broker
 from blueOcean.application.factories import IOhlcvFetcherFactory
 from blueOcean.application.feed import LocalDataFeed, QueueDataFeed
+from blueOcean.application.playground import NotebookExecutionService
 from blueOcean.application.services import (
     BacktestExchangeService,
     BotWorkerFactory,
@@ -30,18 +32,25 @@ from blueOcean.domain.bot import (
     IBotWorkerFactory,
     LiveContext,
 )
+from blueOcean.domain.playground import IPlaygroundRunRepository
 from blueOcean.domain.ohlcv import IOhlcvRepository
 from blueOcean.infra.accessors import (
     ExchangeSymbolDirectoryAccessor,
     LocalBotRuntimeDirectoryAccessor,
+    NotebookDirectoryAccessor,
 )
 from blueOcean.infra.database.entities import (
     AccountEntity,
     BotContextEntity,
     BotEntity,
+    PlaygroundRunEntity,
     proxy,
 )
-from blueOcean.infra.database.repositories import BotRepository, OhlcvRepository
+from blueOcean.infra.database.repositories import (
+    BotRepository,
+    OhlcvRepository,
+    PlaygroundRunRepository,
+)
 from blueOcean.infra.factories import OhlcvFetcherFactory
 from blueOcean.infra.stores import CcxtSpotStore
 
@@ -69,6 +78,7 @@ class AppDatabaseModule(Module):
                 AccountEntity,
                 BotEntity,
                 BotContextEntity,
+                PlaygroundRunEntity,
             ]
         )
         return db
@@ -83,6 +93,9 @@ class AppModule(Module):
         binder.bind(IBotWorkerFactory, to=BotWorkerFactory)
         binder.bind(IOhlcvRepository, to=OhlcvRepository)
         binder.bind(IOhlcvFetcherFactory, to=OhlcvFetcherFactory)
+        binder.bind(IPlaygroundRunRepository, to=PlaygroundRunRepository)
+        binder.bind(INotebookDirectoryAccessor, to=NotebookDirectoryAccessor)
+        binder.bind(NotebookExecutionService, to=NotebookExecutionService)
 
 
 class FetchModule(Module):

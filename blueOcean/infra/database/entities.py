@@ -67,3 +67,18 @@ class BotContextEntity(BaseModel):
     class Meta:
         table_name = "bot_contexts"
         indexes = ((("source", "symbol"), False),)
+
+
+class PlaygroundRunEntity(BaseModel):
+    id = CharField(primary_key=True)
+    notebook_path = TextField()
+    parameters_json = TextField()
+    markdown = TextField()
+    status = IntegerField(index=True)
+    executed_at = DateTimeField(default=datetime.now)
+    output_path = TextField(null=True)
+    error_message = TextField(null=True)
+    created_at = DateTimeField(default=datetime.now)
+
+    class Meta:
+        table_name = "playground_runs"

@@ -17,6 +17,9 @@ from blueOcean.presentation.notifiers import (
     BotDetailPageNotifier,
     BotTopPageNotifier,
     OhlcvFetchDialogNotifier,
+    PlaygroundHistoryDetailPageNotifier,
+    PlaygroundHistoryPageNotifier,
+    PlaygroundPageNotifier,
 )
 
 
@@ -113,3 +116,30 @@ class BacktestDialogScope(Scope):
     @property
     def exchange_symbol_accessor(self) -> IExchangeSymbolAccessor:
         return self._injector.get(IExchangeSymbolAccessor)
+
+
+class PlaygroundPageScope(Scope):
+    def __init__(self, parent: Scope):
+        super().__init__(Injector([], parent=parent._injector))
+
+    @property
+    def notifier(self) -> PlaygroundPageNotifier:
+        return self._injector.get(PlaygroundPageNotifier)
+
+
+class PlaygroundHistoryPageScope(Scope):
+    def __init__(self, parent: Scope):
+        super().__init__(Injector([], parent=parent._injector))
+
+    @property
+    def notifier(self) -> PlaygroundHistoryPageNotifier:
+        return self._injector.get(PlaygroundHistoryPageNotifier)
+
+
+class PlaygroundHistoryDetailPageScope(Scope):
+    def __init__(self, parent: Scope):
+        super().__init__(Injector([], parent=parent._injector))
+
+    @property
+    def notifier(self) -> PlaygroundHistoryDetailPageNotifier:
+        return self._injector.get(PlaygroundHistoryDetailPageNotifier)
