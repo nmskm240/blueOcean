@@ -96,3 +96,22 @@ class TimeReturnPoint:
     analyzer: str
     key: str
     value: float
+
+
+@dataclass(frozen=True)
+class NotebookParameterInfo:
+    name: str
+    default: Any = field(default=None)
+    inferred_type: str | None = field(default=None)
+
+
+@dataclass(frozen=True)
+class PlaygroundRunInfo:
+    run_id: str
+    notebook_path: str
+    parameters: dict[str, Any]
+    markdown: str
+    status: str
+    executed_at: datetime
+    output_path: str | None
+    error_message: str | None

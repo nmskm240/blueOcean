@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import pytest
-from faker import Faker
 from peewee import SqliteDatabase
 
 from blueOcean.domain.account import Account, AccountId, ApiCredential
@@ -14,13 +13,19 @@ from blueOcean.domain.bot import (
     LiveContext,
 )
 from blueOcean.domain.ohlcv import Timeframe
+from blueOcean.domain.playground import PlaygroundRun, PlaygroundRunId, PlaygroundRunStatus
 from blueOcean.infra.database.entities import (
     AccountEntity,
     BotContextEntity,
     BotEntity,
+    PlaygroundRunEntity,
     proxy,
 )
-from blueOcean.infra.database.repositories import AccountRepository, BotRepository
+from blueOcean.infra.database.repositories import (
+    AccountRepository,
+    BotRepository,
+    PlaygroundRunRepository,
+)
 from blueOcean.shared.registries import StrategyRegistry
 
 
@@ -28,11 +33,11 @@ from blueOcean.shared.registries import StrategyRegistry
 def db():
     db = SqliteDatabase(":memory:", pragmas={"foreign_keys": 1})
     proxy.initialize(db)
-    db.create_tables([AccountEntity, BotEntity, BotContextEntity])
+    db.create_tables([AccountEntity, BotEntity, BotContextEntity, PlaygroundRunEntity])
     try:
         yield db
     finally:
-        db.drop_tables([AccountEntity, BotEntity, BotContextEntity])
+        db.drop_tables([AccountEntity, BotContextEntity, BotEntity, PlaygroundRunEntity])
         db.close()
 
 
@@ -55,14 +60,18 @@ def bot_repo(db) -> BotRepository:
     return BotRepository(connection=db)
 
 
+@pytest.fixture
+def playground_repo(db) -> PlaygroundRunRepository:
+    return PlaygroundRunRepository(connection=db)
+
+
 def _build_account(label: str = "acc") -> Account:
-    faker = Faker()
     return Account(
         id=AccountId.create(),
         credential=ApiCredential(
             exchange="binance",
-            key=faker.lexify(text="????-????"),
-            secret=faker.lexify(text="????-????"),
+            key="dummy-key",
+            secret="dummy-secret",
             is_sandbox=True,
         ),
         label=label,
@@ -198,6 +207,29 @@ def test_bot_save_backtest(bot_repo: BotRepository):
     assert saved.context.source == "binance"
     assert saved.context.symbol == "BTC/USDT"
     assert saved.context.timeframe == Timeframe.FIFTEEN_MINUTE
+
+
+def test_playground_run_save_and_fetch(playground_repo: PlaygroundRunRepository):
+    run = PlaygroundRun(
+        id=PlaygroundRunId.create(),
+        notebook_path="notebooks/sample.ipynb",
+        parameters={"alpha": 1, "beta": "x"},
+        markdown="# Result",
+        status=PlaygroundRunStatus.SUCCESS,
+        executed_at=datetime(2024, 1, 1),
+        output_path="out/playground/sample.ipynb",
+        error_message=None,
+    )
+
+    saved = playground_repo.save(run)
+    fetched = playground_repo.find_by_id(saved.id)
+
+    assert fetched.id.value == saved.id.value
+    assert fetched.notebook_path == "notebooks/sample.ipynb"
+    assert fetched.parameters == {"alpha": 1, "beta": "x"}
+    assert fetched.markdown == "# Result"
+    assert fetched.status is PlaygroundRunStatus.SUCCESS
+    assert fetched.output_path == "out/playground/sample.ipynb"
     assert saved.context.start_at == datetime(2020, 1, 1)
     assert saved.context.end_at == datetime(2020, 1, 2)
     assert saved.label == "bt-1"

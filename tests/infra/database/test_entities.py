@@ -17,6 +17,7 @@ from blueOcean.infra.database.entities import (
     AccountEntity,
     BotContextEntity,
     BotEntity,
+    PlaygroundRunEntity,
     proxy,
 )
 from blueOcean.infra.database.mapper import to_domain, to_entity
@@ -27,11 +28,11 @@ from blueOcean.shared.registries import StrategyRegistry
 def db():
     db = SqliteDatabase(":memory:", pragmas={"foreign_keys": 1})
     proxy.initialize(db)
-    db.create_tables([AccountEntity, BotEntity, BotContextEntity])
+    db.create_tables([AccountEntity, BotEntity, BotContextEntity, PlaygroundRunEntity])
     try:
         yield db
     finally:
-        db.drop_tables([AccountEntity, BotEntity, BotContextEntity])
+        db.drop_tables([AccountEntity, BotEntity, BotContextEntity, PlaygroundRunEntity])
         db.close()
 
 

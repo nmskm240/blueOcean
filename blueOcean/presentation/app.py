@@ -6,6 +6,9 @@ from blueOcean.presentation.pages import (
     BotDetailPage,
     BotTopPage,
     HomePage,
+    PlaygroundHistoryDetailPage,
+    PlaygroundHistoryPage,
+    PlaygroundPage,
     StrategiesPage,
 )
 from blueOcean.presentation.widgets import RootAppBar
@@ -38,6 +41,27 @@ def run(page: ft.Page):
             ),
         ),
         path(StrategiesPage.route, clear=True, view=StrategiesPage.render),
+        path(
+            PlaygroundPage.route,
+            clear=True,
+            view=lambda page, params, basket: PlaygroundPage(app_scope).render(
+                page, params, basket
+            ),
+        ),
+        path(
+            PlaygroundHistoryPage.route,
+            clear=True,
+            view=lambda page, params, basket: PlaygroundHistoryPage(app_scope).render(
+                page, params, basket
+            ),
+        ),
+        path(
+            PlaygroundHistoryDetailPage.route,
+            clear=True,
+            view=lambda page, params, basket: PlaygroundHistoryDetailPage(app_scope).render(
+                page, params, basket
+            ),
+        ),
     ]
     Routing(
         page=page,

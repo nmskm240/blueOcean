@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 from pathlib import Path
 
 import duckdb
@@ -10,8 +11,19 @@ from peewee import SqliteDatabase
 
 from blueOcean.domain.account import Account, AccountId
 from blueOcean.domain.bot import Bot, BotId, IBotRepository
+from blueOcean.domain.playground import (
+    PlaygroundRun,
+    PlaygroundRunId,
+    PlaygroundRunStatus,
+    IPlaygroundRunRepository,
+)
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
-from blueOcean.infra.database.entities import AccountEntity, BotContextEntity, BotEntity
+from blueOcean.infra.database.entities import (
+    AccountEntity,
+    BotContextEntity,
+    BotEntity,
+    PlaygroundRunEntity,
+)
 from blueOcean.infra.database.mapper import to_domain, to_entity
 from blueOcean.infra.logging import logger
 
@@ -180,6 +192,63 @@ class BotRepository(IBotRepository):
             context_entity = bot_entity.botcontextentity
             bots.append(to_domain(bot_entity, context_entity))
         return bots
+
+
+class PlaygroundRunRepository(IPlaygroundRunRepository):
+    @inject
+    def __init__(self, connection: SqliteDatabase):
+        self._con = connection
+
+    def save(self, run: PlaygroundRun) -> PlaygroundRun:
+        data = {
+            "id": run.id.value,
+            "notebook_path": run.notebook_path,
+            "parameters_json": json.dumps(run.parameters, ensure_ascii=False),
+            "markdown": run.markdown,
+            "status": int(run.status),
+            "executed_at": run.executed_at,
+            "output_path": run.output_path,
+            "error_message": run.error_message,
+            "created_at": datetime.now(),
+        }
+        (
+            PlaygroundRunEntity.insert(**data)
+            .on_conflict(
+                conflict_target=[PlaygroundRunEntity.id],
+                update={
+                    PlaygroundRunEntity.notebook_path: data["notebook_path"],
+                    PlaygroundRunEntity.parameters_json: data["parameters_json"],
+                    PlaygroundRunEntity.markdown: data["markdown"],
+                    PlaygroundRunEntity.status: data["status"],
+                    PlaygroundRunEntity.executed_at: data["executed_at"],
+                    PlaygroundRunEntity.output_path: data["output_path"],
+                    PlaygroundRunEntity.error_message: data["error_message"],
+                    PlaygroundRunEntity.created_at: data["created_at"],
+                },
+            )
+            .execute()
+        )
+        return run
+
+    def find_by_id(self, run_id: PlaygroundRunId) -> PlaygroundRun:
+        entity = PlaygroundRunEntity.get_by_id(run_id.value)
+        return self._to_domain(entity)
+
+    def get_all(self) -> list[PlaygroundRun]:
+        return [self._to_domain(entity) for entity in PlaygroundRunEntity.select()]
+
+    @staticmethod
+    def _to_domain(entity: PlaygroundRunEntity) -> PlaygroundRun:
+        return PlaygroundRun(
+            id=PlaygroundRunId(entity.id),
+            notebook_path=entity.notebook_path,
+            parameters=json.loads(entity.parameters_json),
+            markdown=entity.markdown,
+            status=PlaygroundRunStatus(entity.status),
+            executed_at=entity.executed_at,
+            output_path=entity.output_path,
+            error_message=entity.error_message,
+        )
 
     def find_by_id(self, id: BotId) -> Bot:
         query = (

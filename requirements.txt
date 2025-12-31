@@ -32,3 +32,4 @@ peewee
 cuid2
 injector
 isort
+papermill

@@ -2,20 +2,40 @@ from __future__ import annotations
 
 from injector import inject
 from datetime import datetime
+from pathlib import Path
 
-from blueOcean.application.accessors import IBotRuntimeDirectoryAccessor
+from blueOcean.application.accessors import (
+    IBotRuntimeDirectoryAccessor,
+    INotebookDirectoryAccessor,
+)
 from blueOcean.application.dto import (
     AccountCredentialInfo,
     BotInfo,
     IBotConfig,
+    NotebookParameterInfo,
+    PlaygroundRunInfo,
     TimeReturnPoint,
 )
 from blueOcean.application.factories import IOhlcvFetcherFactory
-from blueOcean.application.mapper import to_account, to_bot_info
+from blueOcean.application.mapper import (
+    to_account,
+    to_bot_info,
+    to_playground_run_info,
+)
+from blueOcean.application.playground import (
+    NotebookExecutionService,
+    NotebookParameterInspector,
+)
 from blueOcean.application.services import BotExecutionService, IExchangeService
 from blueOcean.domain.account import AccountId
 from blueOcean.domain.bot import BotId, IBotRepository
 from blueOcean.domain.ohlcv import IOhlcvRepository
+from blueOcean.domain.playground import (
+    IPlaygroundRunRepository,
+    PlaygroundRun,
+    PlaygroundRunId,
+    PlaygroundRunStatus,
+)
 from blueOcean.infra.database.repositories import AccountRepository
 
 
@@ -133,3 +153,89 @@ class LaunchBotUsecase:
     def execute(self, config: IBotConfig) -> BotId:
         context = config.to_context()
         return self._execution_service.start(context)
+
+
+class FetchPlaygroundNotebooksUsecase:
+    @inject
+    def __init__(self, accessor: INotebookDirectoryAccessor):
+        self._accessor = accessor
+
+    def execute(self) -> list[str]:
+        return [path.name for path in self._accessor.list_notebooks()]
+
+
+class InspectPlaygroundNotebookParametersUsecase:
+    @inject
+    def __init__(self, accessor: INotebookDirectoryAccessor):
+        self._accessor = accessor
+        self._inspector = NotebookParameterInspector()
+
+    def execute(self, notebook_name: str) -> list[NotebookParameterInfo]:
+        path = self._accessor.resolve(notebook_name)
+        return self._inspector.inspect(path)
+
+
+class ExecutePlaygroundNotebookUsecase:
+    @inject
+    def __init__(
+        self,
+        accessor: INotebookDirectoryAccessor,
+        execution_service: NotebookExecutionService,
+        repository: IPlaygroundRunRepository,
+    ):
+        self._accessor = accessor
+        self._execution_service = execution_service
+        self._repository = repository
+
+    def execute(self, notebook_name: str, parameters: dict) -> PlaygroundRunInfo:
+        run_id = PlaygroundRunId.create()
+        notebook_path = self._accessor.resolve(notebook_name)
+        output_path = Path("./out/playground") / run_id.value / notebook_name
+        executed_at = datetime.now()
+
+        try:
+            result = self._execution_service.execute(
+                notebook_path=notebook_path,
+                output_path=output_path,
+                parameters=parameters,
+            )
+            markdown = result.markdown
+            status = PlaygroundRunStatus.SUCCESS
+            error_message = None
+        except Exception as exc:
+            markdown = f\"実行に失敗しました: {exc}\"
+            status = PlaygroundRunStatus.FAILED
+            error_message = str(exc)
+            output_path = None
+
+        run = PlaygroundRun(
+            id=run_id,
+            notebook_path=str(notebook_path),
+            parameters=parameters,
+            markdown=markdown,
+            status=status,
+            executed_at=executed_at,
+            output_path=str(output_path) if output_path else None,
+            error_message=error_message,
+        )
+        self._repository.save(run)
+        return to_playground_run_info(run)
+
+
+class FetchPlaygroundRunsUsecase:
+    @inject
+    def __init__(self, repository: IPlaygroundRunRepository):
+        self._repository = repository
+
+    def execute(self) -> list[PlaygroundRunInfo]:
+        return [to_playground_run_info(run) for run in self._repository.get_all()]
+
+
+class FetchPlaygroundRunDetailUsecase:
+    @inject
+    def __init__(self, repository: IPlaygroundRunRepository):
+        self._repository = repository
+
+    def execute(self, run_id: str) -> PlaygroundRunInfo:
+        run = self._repository.find_by_id(PlaygroundRunId(run_id))
+        return to_playground_run_info(run)

@@ -26,3 +26,13 @@ class IExchangeSymbolAccessor(metaclass=ABCMeta):
     @abstractmethod
     def symbols_for(self, echange_name: str) -> list[str]:
         raise NotImplementedError()
+
+
+class INotebookDirectoryAccessor(metaclass=ABCMeta):
+    @abstractmethod
+    def list_notebooks(self) -> list[Path]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def resolve(self, notebook_name: str) -> Path:
+        raise NotImplementedError()
