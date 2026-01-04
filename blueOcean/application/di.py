@@ -197,7 +197,7 @@ class BacktestRuntimeModule(IBotRunTimeModule):
             analyzers=["timereturn"],
             path=run_directory,
         )
-        cerebro.addstrategy(self._context.strategy_cls, **self._context.strategy_args)
+        cerebro.optstrategy(self._context.strategy_cls, **self._context.strategy_args)
         return cerebro
 
 
