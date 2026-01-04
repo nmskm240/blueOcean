@@ -47,3 +47,9 @@ class StreamingAnalyzer(bt.Analyzer):
 
     def stop(self):
         self.file.close()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["file"] = None
+        return state
+    
