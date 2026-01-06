@@ -18,6 +18,12 @@ class OhlcvFetchDialogState:
 
 
 @dataclass(frozen=True)
+class AccountCredentialDialogState:
+    drift: AccountCredentialInfo = field(default=AccountCredentialInfo)
+    exchange_options: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class BacktestDialogState:
     source: str = field(default="")
     symbol: str = field(default="")
