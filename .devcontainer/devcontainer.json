@@ -1,16 +1,18 @@
 {
 	"name": "blueOcean",
-	"dockerComposeFile": [
-		"compose.yaml"
-	],
+	"build": {
+		"dockerfile": ".dockerfile",
+		"context": ".."
+	},
 	"forwardPorts": [
-		8501, // flet
+		8501 // flet
 	],
 	"features": {
 		"ghcr.io/warrenbuckley/codespace-features/sqlite": "1"
 	},
-	"service": "app",
 	"workspaceFolder": "/workspace",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+	"postCreateCommand": "uv sync && uv pip install -e .",
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -24,6 +26,5 @@
 				"jebbs.plantuml"
 			]
 		}
-	},
-	"postCreateCommand": "pip install -e ."
+	}
 }
