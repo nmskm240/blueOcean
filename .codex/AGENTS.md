@@ -4,7 +4,7 @@
 
 ## 技術スタック
 
-使用しているライブラリは `requirements.txt`を参照
+使用しているライブラリは `pyproject.toml`を参照
 
 ### インフラ
 
@@ -88,10 +88,6 @@ DDDをベースに開発します
 - バックテストと本番稼働の差をなくす
     - backtraderによるエンジンの統一を徹底する
     - `BacktestWorker`, `RealTradeWorker`のように、backtraderの稼働は別プロセスで行う
-- jupyterとstreamlitの繋ぎ込みを行う
-    - jupyterで出力したグラフは`MarkdownInlineFigurePreprocessor`を使用してmarkdownに直接埋め込み、`strategy_page`デコレータを通してStreamlitページとして表示できるようにする
-- Streamlitを管理ツール兼プレイグラウンドとして扱う
-    - 本番稼働のダッシュボード、バックテストの履歴確認、戦略のアイデア帳として作成する
 
 ## コーディング規則
 

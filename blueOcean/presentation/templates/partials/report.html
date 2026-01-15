@@ -1,0 +1,46 @@
+<div class="space-y-6">
+  {% if report %}
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Total Return</span>
+        <strong class="mt-2 block text-lg text-white">{{ report.summary.total_return }}</strong>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <span class="text-xs uppercase tracking-[0.2em] text-slate-400">CAGR</span>
+        <strong class="mt-2 block text-lg text-white">{{ report.summary.cagr }}</strong>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Sharpe</span>
+        <strong class="mt-2 block text-lg text-white">{{ report.summary.sharpe }}</strong>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Sortino</span>
+        <strong class="mt-2 block text-lg text-white">{{ report.summary.sortino }}</strong>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Volatility</span>
+        <strong class="mt-2 block text-lg text-white">{{ report.summary.volatility }}</strong>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Max Drawdown</span>
+        <strong class="mt-2 block text-lg text-white">{{ report.summary.max_drawdown }}</strong>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <span class="text-xs uppercase tracking-[0.2em] text-slate-400">Win Rate</span>
+        <strong class="mt-2 block text-lg text-white">{{ report.summary.win_rate }}</strong>
+      </div>
+    </div>
+    <div class="grid gap-6 lg:grid-cols-2">
+      <div class="rounded-3xl border border-slate-800 bg-slate-900/60 p-5">
+        <h3 class="text-lg font-semibold text-white">Equity Curve</h3>
+        <img class="mt-4 w-full rounded-2xl" src="{{ report.equity_image }}" alt="Equity curve" />
+      </div>
+      <div class="rounded-3xl border border-slate-800 bg-slate-900/60 p-5">
+        <h3 class="text-lg font-semibold text-white">Drawdown</h3>
+        <img class="mt-4 w-full rounded-2xl" src="{{ report.drawdown_image }}" alt="Drawdown" />
+      </div>
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">Report not found.</div>
+  {% endif %}
+</div>
