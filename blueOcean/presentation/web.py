@@ -13,8 +13,6 @@ from blueOcean.domain.bot import BotId
 from blueOcean.domain.ohlcv import Timeframe
 from blueOcean.presentation.reporting import build_report
 from blueOcean.presentation.scopes import (
-    AccountCredentialDialogScope,
-    AccountPageScope,
     AppScope,
     BacktestDialogScope,
     BotDetailPageScope,
@@ -31,14 +29,12 @@ STATIC_DIR = BASE_DIR / "static"
 def create_app() -> FastAPI:
     app = FastAPI()
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.state.app_scope = AppScope()
 
     def nav_items(current: str) -> list[dict[str, Any]]:
         items = [
             {"label": "Home", "href": "/"},
             {"label": "Bots", "href": "/bots"},
-            {"label": "Accounts", "href": "/accounts"},
             {"label": "Strategies", "href": "/strategies"},
         ]
         for item in items:
@@ -87,14 +83,6 @@ def create_app() -> FastAPI:
         )
         return templates.TemplateResponse("pages/bot_detail.html", context)
 
-    @app.get("/accounts", response_class=HTMLResponse)
-    def accounts(request: Request):
-        scope = AccountPageScope(request.app.state.app_scope)
-        state = scope.notifier.state
-        context = base_context(request, "Accounts")
-        context["accounts"] = state
-        return templates.TemplateResponse("pages/accounts.html", context)
-
     @app.get("/strategies", response_class=HTMLResponse)
     def strategies(request: Request):
         strategies_list = [name for name, _ in StrategyRegistry]
@@ -112,68 +100,27 @@ def create_app() -> FastAPI:
         state = scope.notifier.state
         context = {
             "request": request,
-            "accounts": state.accounts,
+            "exchanges": state.exchanges,
         }
         return templates.TemplateResponse("partials/ohlcv_modal.html", context)
 
     @app.post("/htmx/ohlcv", response_class=HTMLResponse)
     def ohlcv_submit(
         request: Request,
-        account_id: str = Form(""),
+        exchange: str = Form(""),
         symbol: str = Form(""),
     ):
         scope = OhlcvFetchDialogScope(request.app.state.app_scope)
         notifier = scope.notifier
         state = notifier.state
-        selected = next(
-            (account for account in state.accounts if account.account_id == account_id),
-            None,
-        )
-        notifier.update(account=selected, symbol=symbol)
+        notifier.update(exchange=exchange, symbol=symbol)
         notifier.submit()
         context = {
             "request": request,
-            "accounts": state.accounts,
+            "exchanges": state.exchanges,
             "message": "Saved price data request.",
         }
         return templates.TemplateResponse("partials/ohlcv_modal.html", context)
-
-    @app.get("/htmx/accounts/new", response_class=HTMLResponse)
-    def account_dialog(request: Request):
-        context = {
-            "request": request,
-            "exchanges": _exchange_options(),
-        }
-        return templates.TemplateResponse("partials/account_modal.html", context)
-
-    @app.post("/htmx/accounts", response_class=HTMLResponse)
-    def account_submit(
-        request: Request,
-        exchange_name: str = Form(""),
-        label: str = Form(""),
-        api_key: str = Form(""),
-        api_secret: str = Form(""),
-        is_sandbox: str | None = Form(None),
-    ):
-        scope = AccountCredentialDialogScope(request.app.state.app_scope)
-        notifier = scope.notifier
-        notifier.update(
-            exchange_name=exchange_name,
-            label=label,
-            api_key=api_key,
-            api_secret=api_secret,
-            is_sandbox=bool(is_sandbox),
-        )
-        notifier.submit()
-        account_scope = AccountPageScope(request.app.state.app_scope)
-        accounts = account_scope.notifier.state
-        context = {
-            "request": request,
-            "exchanges": _exchange_options(),
-            "message": "Account saved.",
-            "accounts": accounts,
-        }
-        return templates.TemplateResponse("partials/account_modal.html", context)
 
     @app.get("/htmx/backtest", response_class=HTMLResponse)
     def backtest_dialog(request: Request):
@@ -251,15 +198,6 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse("partials/backtest_modal.html", context)
 
     return app
-
-
-def _exchange_options() -> list[str]:
-    try:
-        import ccxt
-
-        return list(ccxt.exchanges)
-    except Exception:
-        return []
 
 
 def _parse_date(value: str | None) -> datetime.date | None:

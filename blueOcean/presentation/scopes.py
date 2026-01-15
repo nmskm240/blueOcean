@@ -11,8 +11,6 @@ from blueOcean.application.di import (
 )
 from blueOcean.domain.bot import BotId
 from blueOcean.presentation.notifiers import (
-    AccountCredentialDialogNotifier,
-    AccountPageNotifier,
     BacktestDialogNotifier,
     BotDetailPageNotifier,
     BotTopPageNotifier,
@@ -35,15 +33,6 @@ class AppScope(Scope):
                 ]
             )
         )
-
-
-class AccountPageScope(Scope):
-    def __init__(self, parent: Scope):
-        super().__init__(Injector([], parent=parent._injector))
-
-    @property
-    def notifier(self) -> AccountPageNotifier:
-        return self._injector.get(AccountPageNotifier)
 
 
 class BotTopPageScope(Scope):
@@ -75,15 +64,6 @@ class BotDetailPageScope(Scope):
     @property
     def notifier(self) -> BotDetailPageNotifier:
         return self._injector.get(BotDetailPageNotifier)
-
-
-class AccountCredentialDialogScope(Scope):
-    def __init__(self, parent: Scope):
-        super().__init__(Injector([], parent=parent._injector))
-
-    @property
-    def notifier(self) -> AccountCredentialDialogNotifier:
-        return self._injector.get(AccountCredentialDialogNotifier)
 
 
 class OhlcvFetchDialogScope(Scope):

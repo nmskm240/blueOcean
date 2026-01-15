@@ -2,19 +2,15 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any
 
-from blueOcean.application.dto import (
-    AccountCredentialInfo,
-    BotInfo,
-    TimeReturnPoint,
-)
+from blueOcean.application.dto import BotInfo, TimeReturnPoint
 from blueOcean.domain.ohlcv import Timeframe
 
 
 @dataclass(frozen=True)
 class OhlcvFetchDialogState:
-    account: AccountCredentialInfo = field(default=None)
+    exchange: str = field(default="")
     symbol: str = field(default="")
-    accounts: list[AccountCredentialInfo] = field(default_factory=list)
+    exchanges: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
