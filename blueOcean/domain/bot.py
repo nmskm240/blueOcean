@@ -8,7 +8,6 @@ from typing import Any
 
 from cuid2 import Cuid
 
-from blueOcean.domain.account import AccountId
 from blueOcean.domain.ohlcv import Timeframe
 
 
@@ -59,7 +58,6 @@ class Bot:
 
 
 class BotRunMode(IntEnum):
-    LIVE = 1
     BACKTEST = 2
 
 
@@ -90,15 +88,6 @@ class BotContext(metaclass=ABCMeta):
     @abstractmethod
     def mode(self) -> BotRunMode:
         raise NotImplementedError()
-
-
-@dataclass(frozen=True)
-class LiveContext(BotContext):
-    account_id: AccountId
-
-    @property
-    def mode(self):
-        return BotRunMode.LIVE
 
 
 @dataclass(frozen=True)

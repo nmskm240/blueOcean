@@ -1,20 +1,14 @@
 import signal
-import threading
-import time
 from abc import ABCMeta, abstractmethod
-from datetime import UTC, datetime, timedelta
 from multiprocessing import Process
 from pathlib import Path
-from queue import Queue
 
 import backtrader as bt
 import psutil
 from injector import Injector
 
-from blueOcean.application.di import BacktestRuntimeModule, LiveTradeRuntimeModule
-from blueOcean.application.factories import IOhlcvFetcherFactory
-from blueOcean.domain.bot import BacktestContext, BotId, IBotWorker, LiveContext
-from blueOcean.domain.ohlcv import OhlcvFetcher
+from blueOcean.application.di import BacktestRuntimeModule
+from blueOcean.domain.bot import BacktestContext, BotId, IBotWorker
 
 
 class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
@@ -40,62 +34,6 @@ class BotProcessWorker(Process, IBotWorker, metaclass=ABCMeta):
 
     def _on_sigterm(self) -> None:
         pass
-
-class LiveTradeWorker(BotProcessWorker):
-    def __init__(self, id: BotId, context: LiveContext):
-        super().__init__()
-        self._id = id
-        self._context = context
-
-        self.threads = []
-        self.should_terminate = False
-
-    def _run(self):
-        container = Injector([LiveTradeRuntimeModule(self._id, self._context)])
-        self._run_directory = container.get(Path)
-
-        fetcher_factory = container.get(IOhlcvFetcherFactory)
-        fetcher = fetcher_factory.create(self._context.account_id)
-        queue = container.get(Queue)
-        self.threads = [
-            threading.Thread(
-                name="fetcher",
-                target=self._fetch_ohlcv,
-                args=[fetcher, self._context.symbol, queue],
-                daemon=True,
-            ),
-        ]
-        for t in self.threads:
-            t.start()
-
-        cerebro = container.get(bt.Cerebro)
-        cerebro.run(runonce=False)
-
-    def shutdown(self):
-        self.should_terminate = True
-        for t in self.threads:
-            t.join()
-
-        super().terminate()
-
-    def _fetch_ohlcv(self, fetcher: OhlcvFetcher, symbol: str, queue: Queue):
-        while not self.should_terminate:
-            now = datetime.now(tz=UTC)
-            next_min = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
-            # MEMO: since_atの時間が含まれないことを考慮するため2分前の時間でリクエストを行う
-            since_at = next_min - timedelta(minutes=2)
-            sleep_time = (next_min - now).total_seconds()
-            time.sleep(sleep_time)
-
-            for batch in fetcher.fetch_ohlcv(symbol, since_at=since_at):
-                for ohlcv in batch:
-                    if now < ohlcv.time:
-                        continue
-                    queue.put_nowait(ohlcv)
-                    break
-
-    def _on_sigterm(self) -> None:
-        self.should_terminate = True
 
 
 class BacktestWorker(BotProcessWorker):

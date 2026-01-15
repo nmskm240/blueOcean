@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from queue import Queue
 
 import backtrader as bt
 import duckdb
@@ -12,23 +11,19 @@ from blueOcean.application.accessors import (
     IExchangeSymbolAccessor,
 )
 from blueOcean.application.analyzers import StreamingAnalyzer
-from blueOcean.application.broker import Broker
 from blueOcean.application.factories import IOhlcvFetcherFactory
-from blueOcean.application.feed import QueueDataFeed
 from blueOcean.application.services import (
     BacktestExchangeService,
     BotWorkerFactory,
     CcxtExchangeService,
     IExchangeService,
 )
-from blueOcean.application.store import IStore
 from blueOcean.domain.bot import (
     BacktestContext,
     BotContext,
     BotId,
     IBotRepository,
     IBotWorkerFactory,
-    LiveContext,
 )
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv
 from blueOcean.infra.accessors import (
@@ -43,7 +38,6 @@ from blueOcean.infra.database.entities import (
 )
 from blueOcean.infra.database.repositories import BotRepository, OhlcvRepository
 from blueOcean.infra.factories import OhlcvFetcherFactory
-from blueOcean.infra.stores import CcxtSpotStore
 
 
 class AppDatabaseModule(Module):
@@ -115,38 +109,6 @@ class IBotRunTimeModule(Module, metaclass=ABCMeta):
     @abstractmethod
     def cerebro_engine(self) -> bt.Cerebro:
         raise NotImplementedError()
-
-
-class LiveTradeRuntimeModule(IBotRunTimeModule):
-    def __init__(self, id: BotId, context: LiveContext):
-        super().__init__(id, context)
-
-    def configure(self, binder):
-        super().configure(binder)
-
-        binder.bind(IStore, to=CcxtSpotStore)
-        binder.bind(Queue, to=Queue, scope=singleton)
-        binder.bind(bt.feed.DataBase, to=QueueDataFeed)
-        binder.bind(bt.broker.BrokerBase, to=Broker)
-
-    @provider
-    def cerebro_engine(
-        self,
-        broker: bt.broker.BrokerBase,
-        feed: bt.feed.DataBase,
-        run_directory: Path,
-    ) -> bt.Cerebro:
-        cerebro = bt.Cerebro()
-        cerebro.broker = broker
-        cerebro.adddata(feed)
-        cerebro.addanalyzer(bt.analyzers.TimeReturn)
-        cerebro.addanalyzer(
-            StreamingAnalyzer,
-            analyzers=["timereturn"],
-            path=run_directory,
-        )
-        cerebro.addstrategy(self._context.strategy_cls, **self._context.strategy_args)
-        return cerebro
 
 
 class BacktestRuntimeModule(IBotRunTimeModule):

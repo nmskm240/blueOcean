@@ -24,17 +24,11 @@ class IExchangeService(metaclass=ABCMeta):
 
 class BotWorkerFactory(IBotWorkerFactory):
     def create(self, id: BotId, context: BotContext):
-        match context.mode:
-            case BotRunMode.LIVE:
-                from blueOcean.application.workers import LiveTradeWorker
+        if context.mode is not BotRunMode.BACKTEST:
+            raise RuntimeError(f"Unsupported run mode. {context.mode}")
+        from blueOcean.application.workers import BacktestWorker
 
-                worker = LiveTradeWorker(id, context)
-            case BotRunMode.BACKTEST:
-                from blueOcean.application.workers import BacktestWorker
-
-                worker = BacktestWorker(id, context)
-            case _:
-                raise RuntimeError(f"Unsupported run mode. {context.mode}")
+        worker = BacktestWorker(id, context)
         return worker
 
 

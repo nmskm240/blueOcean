@@ -9,7 +9,6 @@ from blueOcean.domain.bot import (
     BotId,
     BotRunMode,
     BotStatus,
-    LiveContext,
 )
 from blueOcean.domain.ohlcv import Timeframe
 from blueOcean.infra.database.entities import AccountEntity, BotContextEntity, BotEntity
@@ -98,15 +97,6 @@ def _bot_entity_to_domain(
                 start_at=context_entity.started_at,
                 end_at=context_entity.finished_at,
             )
-        case BotRunMode.LIVE:
-            context = LiveContext(
-                strategy_cls=StrategyRegistry.resolve(context_entity.strategy_name),
-                strategy_args=json.loads(context_entity.strategy_args),
-                source=context_entity.source,
-                symbol=context_entity.symbol,
-                timeframe=Timeframe.from_compression(context_entity.timeframe),
-                account_id=AccountId(context_entity.account.id),
-            )
         case _:
             raise ValueError()
     return Bot(
@@ -144,9 +134,7 @@ def _bot_to_entity(bot: Bot) -> tuple[BotEntity, BotContextEntity]:
         timeframe=context.timeframe.value,
     )
 
-    if isinstance(context, LiveContext):
-        context_entity.account = context.account_id.value
-    elif isinstance(context, BacktestContext):
+    if isinstance(context, BacktestContext):
         context_entity.started_at = context.start_at
         context_entity.finished_at = context.end_at
 

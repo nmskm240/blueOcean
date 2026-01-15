@@ -7,8 +7,7 @@ from typing import Any, Type
 
 import backtrader as bt
 
-from blueOcean.domain.account import AccountId
-from blueOcean.domain.bot import BacktestContext, LiveContext
+from blueOcean.domain.bot import BacktestContext
 from blueOcean.domain.ohlcv import Timeframe
 
 
@@ -35,20 +34,6 @@ class IBotConfig[TContext](metaclass=ABCMeta):
 
 
 @dataclass
-class LiveConfig(IBotConfig[LiveContext]):
-    account_id: str = field(default="")
-
-    def to_context(self):
-        return LiveContext(
-            strategy_cls=self.strategy_cls,
-            strategy_args=self.strategy_args,
-            source=self.source,
-            symbol=self.symbol,
-            timeframe=self.timeframe,
-            account_id=AccountId(self.account_id),
-        )
-
-
 @dataclass
 class BacktestConfig(IBotConfig[BacktestContext]):
     cash: int = field(default=10000)
