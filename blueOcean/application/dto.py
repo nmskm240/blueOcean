@@ -52,16 +52,6 @@ class BacktestConfig(IBotConfig[BacktestContext]):
 
 
 @dataclass(frozen=True)
-class AccountCredentialInfo:
-    account_id: str = field(default="")
-    exchange_name: str = field(default="")
-    api_key: str = field(default="")
-    api_secret: str = field(default="")
-    is_sandbox: bool = field(default=True)
-    label: str = field(default="")
-
-
-@dataclass(frozen=True)
 class BotInfo:
     bot_id: str
     label: str

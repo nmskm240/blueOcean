@@ -6,10 +6,14 @@ import ccxt
 from injector import inject
 
 from blueOcean.application.accessors import IExchangeSymbolAccessor
-from blueOcean.domain.bot import (Bot, BotContext, BotId, BotRunMode,
-                                  IBotRepository, IBotWorkerFactory)
-from blueOcean.domain.ohlcv import IOhlcvRepository
-from blueOcean.infra.database.repositories import AccountRepository
+from blueOcean.domain.bot import (
+    Bot,
+    BotContext,
+    BotId,
+    BotRunMode,
+    IBotRepository,
+    IBotWorkerFactory,
+)
 
 
 class IExchangeService(metaclass=ABCMeta):
@@ -63,37 +67,8 @@ class BotExecutionService:
 
 
 class CcxtExchangeService(IExchangeService):
-    @inject
-    def __init__(
-        self,
-        account_repository: AccountRepository,
-        ohlcv_repository: IOhlcvRepository,
-    ):
-        self._account_repository = account_repository
-        self._ohlcv_repository = ohlcv_repository
-
     def fetchable_exchanges(self) -> list[str]:
-        supported: list[str] = []
-        for account in self._account_repository.get_all():
-            credential = account.credential
-            if not credential.key or not credential.secret:
-                continue
-            name = credential.exchange
-            if name in supported:
-                continue
-            exchange_cls = getattr(ccxt, name, None)
-            if exchange_cls is None:
-                continue
-            exchange = exchange_cls(
-                {
-                    "apiKey": credential.key,
-                    "secret": credential.secret,
-                }
-            )
-            exchange.set_sandbox_mode(credential.is_sandbox)
-            if exchange.has.get("fetchOHLCV"):
-                supported.append(name)
-        return supported
+        return list(ccxt.exchanges)
 
     def symbols_for(self, exchange_name: str) -> list[str]:
         exchange_cls = getattr(ccxt, exchange_name, None)

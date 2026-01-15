@@ -4,19 +4,12 @@ from injector import inject
 from datetime import datetime
 
 from blueOcean.application.accessors import IBotRuntimeDirectoryAccessor
-from blueOcean.application.dto import (
-    AccountCredentialInfo,
-    BotInfo,
-    IBotConfig,
-    TimeReturnPoint,
-)
+from blueOcean.application.dto import BotInfo, IBotConfig, TimeReturnPoint
 from blueOcean.application.factories import IOhlcvFetcherFactory
-from blueOcean.application.mapper import to_account, to_bot_info
+from blueOcean.application.mapper import to_bot_info
 from blueOcean.application.services import BotExecutionService, IExchangeService
-from blueOcean.domain.account import AccountId
 from blueOcean.domain.bot import BotId, IBotRepository
 from blueOcean.domain.ohlcv import IOhlcvRepository
-from blueOcean.infra.database.repositories import AccountRepository
 
 
 class FetchOhlcvUsecase:
@@ -25,22 +18,19 @@ class FetchOhlcvUsecase:
         self,
         fetcher_factory: IOhlcvFetcherFactory,
         ohlcv_repository: IOhlcvRepository,
-        account_repository: AccountRepository,
     ):
         self._fetcher_factory = fetcher_factory
         self._ohlcv_repository = ohlcv_repository
-        self._account_repository = account_repository
 
-    def execute(self, account_id: AccountId, symbol: str):
+    def execute(self, exchange_name: str, symbol: str):
         # TODO: スレッドに逃がすべきな印象
-        account = self._account_repository.find_by_id(account_id)
         latest_at = self._ohlcv_repository.get_latest_timestamp(
-            account.credential.exchange, symbol
+            exchange_name, symbol
         )
-        fetcher = self._fetcher_factory.create(account_id)
+        fetcher = self._fetcher_factory.create(exchange_name)
 
         for batch in fetcher.fetch_ohlcv(symbol, latest_at):
-            self._ohlcv_repository.save(batch, account.credential.exchange, symbol)
+            self._ohlcv_repository.save(batch, exchange_name, symbol)
 
 
 class FetchExchangeSymbolsUsecase:
@@ -59,37 +49,6 @@ class FetchFetchableExchangesUsecase:
 
     def execute(self) -> list[str]:
         return self._service.fetchable_exchanges()
-
-
-class RegistAccountUsecase:
-    @inject
-    def __init__(self, repository: AccountRepository):
-        self._repository = repository
-
-    def execute(self, request: AccountCredentialInfo) -> AccountId:
-        account = to_account(request)
-
-        saved = self._repository.save(account)
-        return saved.id
-
-
-class FetchAccountsUsecase:
-    @inject
-    def __init__(self, repository: AccountRepository):
-        self._repository = repository
-
-    def execute(self):
-        accounts = self._repository.get_all()
-        return [
-            AccountCredentialInfo(
-                account_id=account.id.value,
-                exchange_name=account.credential.exchange,
-                api_key=account.credential.key,
-                api_secret=account.credential.secret,
-                is_sandbox=account.credential.is_sandbox,
-            )
-            for account in accounts
-        ]
 
 
 class FetchBotsUsecase:

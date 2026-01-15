@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 
 from peewee import (
-    BooleanField,
     CharField,
     DatabaseProxy,
     DateTimeField,
@@ -19,21 +18,6 @@ proxy = DatabaseProxy()
 class BaseModel(Model):
     class Meta:
         database = proxy
-
-
-class AccountEntity(BaseModel):
-    id = CharField(primary_key=True)
-    api_key = CharField()
-    api_secret = CharField()
-    exchange_name = CharField(index=True)
-    is_sandbox = BooleanField(default=False)
-    label = CharField(unique=True)
-    created_at = DateTimeField(default=datetime.now)
-    updated_at = DateTimeField(default=datetime.now)
-
-    class Meta:
-        table_name = "accounts"
-        indexes = ((("exchange_name", "is_sandbox", "api_key"), True),)
 
 
 class BotEntity(BaseModel):
@@ -58,8 +42,6 @@ class BotContextEntity(BaseModel):
     source = CharField()
     symbol = CharField()
     timeframe = IntegerField(default=1)
-    # memo: 本番稼働用
-    account = ForeignKeyField(AccountEntity, null=True)
     # memo: バックテスト用
     started_at = DateTimeField(null=True)
     finished_at = DateTimeField(null=True)

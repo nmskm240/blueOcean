@@ -8,10 +8,9 @@ import pyarrow.parquet as pq
 from injector import inject
 from peewee import SqliteDatabase
 
-from blueOcean.domain.account import Account, AccountId
 from blueOcean.domain.bot import Bot, BotId, IBotRepository
 from blueOcean.domain.ohlcv import IOhlcvRepository, Ohlcv, Timeframe
-from blueOcean.infra.database.entities import AccountEntity, BotContextEntity, BotEntity
+from blueOcean.infra.database.entities import BotContextEntity, BotEntity
 from blueOcean.infra.database.mapper import to_domain, to_entity
 from blueOcean.infra.logging import logger
 
@@ -101,43 +100,6 @@ class OhlcvRepository(IOhlcvRepository):
             """
         df = self.__con.execute(sql).df()
         return Ohlcv.from_dataframe(df)
-
-
-class AccountRepository:
-    @inject
-    def __init__(self, connection: SqliteDatabase):
-        self.con = connection
-
-    def find_by_id(self, account_id: AccountId) -> Account:
-        account_entity = AccountEntity.get_by_id(account_id.value)
-        return to_domain(account_entity)
-
-    def get_all(self) -> list[Account]:
-        return [to_domain(entity) for entity in AccountEntity.select()]
-
-    def save(self, account: Account) -> Account:
-        entity = to_entity(account)
-
-        data = entity.__data__.copy()
-        (
-            AccountEntity.insert(**data)
-            .on_conflict(
-                conflict_target=[AccountEntity.id],
-                update={
-                    AccountEntity.api_key: data["api_key"],
-                    AccountEntity.api_secret: data["api_secret"],
-                    AccountEntity.exchange_name: data["exchange_name"],
-                    AccountEntity.is_sandbox: data["is_sandbox"],
-                    AccountEntity.label: data["label"],
-                    AccountEntity.updated_at: datetime.now(),
-                },
-            )
-            .execute()
-        )
-        return account
-
-    def delete_by_id(self, account_id: AccountId) -> None:
-        AccountEntity.delete().where(AccountEntity.id == account_id.value).execute()
 
 
 class BotRepository(IBotRepository):

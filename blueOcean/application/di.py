@@ -31,7 +31,6 @@ from blueOcean.infra.accessors import (
     LocalBotRuntimeDirectoryAccessor,
 )
 from blueOcean.infra.database.entities import (
-    AccountEntity,
     BotContextEntity,
     BotEntity,
     proxy,
@@ -53,7 +52,6 @@ class AppDatabaseModule(Module):
         proxy.initialize(db)
         db.create_tables(
             [
-                AccountEntity,
                 BotEntity,
                 BotContextEntity,
             ]

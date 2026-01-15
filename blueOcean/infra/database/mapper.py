@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 from typing import overload
 
-from blueOcean.domain.account import Account, AccountId, ApiCredential
 from blueOcean.domain.bot import (
     BacktestContext,
     Bot,
@@ -11,12 +10,8 @@ from blueOcean.domain.bot import (
     BotStatus,
 )
 from blueOcean.domain.ohlcv import Timeframe
-from blueOcean.infra.database.entities import AccountEntity, BotContextEntity, BotEntity
+from blueOcean.infra.database.entities import BotContextEntity, BotEntity
 from blueOcean.shared.registries import StrategyRegistry
-
-
-@overload
-def to_domain(account_entity: AccountEntity) -> Account: ...
 
 
 @overload
@@ -24,8 +19,6 @@ def to_domain(bot_entity: BotEntity, context_entity: BotContextEntity) -> Bot: .
 
 
 def to_domain(*args):
-    if len(args) == 1 and isinstance(args[0], AccountEntity):
-        return _account_entity_to_domain(args[0])
     if (
         len(args) == 2
         and isinstance(args[0], BotEntity)
@@ -36,47 +29,13 @@ def to_domain(*args):
 
 
 @overload
-def to_entity(account: Account) -> AccountEntity: ...
-
-
-@overload
 def to_entity(bot: Bot) -> tuple[BotEntity, BotContextEntity]: ...
 
 
 def to_entity(*args):
-    if len(args) == 1 and isinstance(args[0], Account):
-        return _account_to_entity(args[0])
     if len(args) == 1 and isinstance(args[0], Bot):
         return _bot_to_entity(args[0])
     raise TypeError("to_entity received unsupported arguments")
-
-
-# region accounts
-
-
-def _account_entity_to_domain(account_entity: AccountEntity) -> Account:
-    return Account(
-        id=AccountId(account_entity.id),
-        credential=ApiCredential(
-            exchange=account_entity.exchange_name,
-            key=account_entity.api_key,
-            secret=account_entity.api_secret,
-            is_sandbox=account_entity.is_sandbox,
-        ),
-        label=account_entity.label,
-    )
-
-
-def _account_to_entity(account: Account) -> AccountEntity:
-    return AccountEntity(
-        id=account.id.value,
-        api_key=account.credential.key,
-        api_secret=account.credential.secret,
-        exchange_name=account.credential.exchange,
-        is_sandbox=account.credential.is_sandbox,
-        label=account.label,
-        updated_at=datetime.now(),
-    )
 
 
 # region bots
