@@ -1,0 +1,20 @@
+{% if params %}
+  <div class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+    {% for param in params %}
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      {{ param.name }}
+      {% if param.kind == "checkbox" %}
+      <input type="checkbox" name="strategy_arg__{{ param.name }}" class="mt-2 h-4 w-4 rounded border-slate-700 bg-slate-950" {% if param.value %}checked{% endif %} />
+      {% elif param.kind == "number" %}
+      <input type="number" name="strategy_arg__{{ param.name }}" value="{{ param.value }}" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+      {% elif param.kind == "float" %}
+      <input type="number" step="any" name="strategy_arg__{{ param.name }}" value="{{ param.value }}" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+      {% else %}
+      <input type="text" name="strategy_arg__{{ param.name }}" value="{{ param.value }}" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+      {% endif %}
+    </label>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-400">No params found.</div>
+{% endif %}

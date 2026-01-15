@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h2 class="text-2xl font-semibold text-white">{{ bot.label or bot.symbol or bot.bot_id if bot else "Bot Detail" }}</h2>
+    <a class="rounded-full border border-slate-700 px-5 py-2 text-sm font-semibold text-white transition hover:border-emerald-300/60 hover:text-emerald-200" href="/bots">Back to Bots</a>
+  </div>
+  {% if error %}
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">{{ error }}</div>
+  {% else %}
+    <div class="flex flex-wrap gap-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+      <span>{{ bot.mode }}</span>
+      <span>{{ bot.status }}</span>
+      <span>{{ bot.source }}</span>
+      <span>{{ bot.symbol }}</span>
+      <span>{{ bot.timeframe.name }}</span>
+      <span>{{ bot.strategy }}</span>
+    </div>
+    {% include "partials/report.html" %}
+  {% endif %}
+</div>
+{% endblock %}
