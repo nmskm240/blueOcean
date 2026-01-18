@@ -66,3 +66,11 @@ class SessionContextEntity(BaseModel):
     class Meta:
         table_name = "session_contexts"
         primary_key = CompositeKey("session_id", "context_id")
+
+
+entities: list[type[Model]] = [
+    SessionEntity,
+    StrategySnapshotEntity,
+    ContextEntity,
+    SessionContextEntity,
+]
