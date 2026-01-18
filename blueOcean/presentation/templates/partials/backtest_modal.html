@@ -1,0 +1,78 @@
+<div class="fixed inset-0 bg-slate-950/70" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML"></div>
+<div class="relative w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
+  <div class="mb-4 flex items-center justify-between">
+    <h3 class="text-lg font-semibold text-white">Start Backtest</h3>
+    <button class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML">x</button>
+  </div>
+  {% if message %}
+  <p class="mb-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-200">{{ message }}</p>
+  {% endif %}
+  <form class="space-y-4" hx-post="/htmx/backtest" hx-target="#modal" hx-swap="innerHTML">
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Exchange
+      <select name="exchange" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" hx-get="/htmx/exchange-symbols" hx-target="#symbol-select" hx-trigger="change">
+        <option value="">Select exchange</option>
+        {% for exchange in exchanges %}
+        <option value="{{ exchange }}">{{ exchange }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Symbol
+      <select id="symbol-select" name="symbol" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white">
+        <option value="">Select symbol</option>
+      </select>
+    </label>
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Timeframe
+      <select name="timeframe" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white">
+        {% for tf in timeframes %}
+        <option value="{{ tf }}">{{ tf }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Strategy
+      <select name="strategy" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" hx-get="/htmx/strategy-params" hx-target="#strategy-params" hx-trigger="change">
+        <option value="">Select strategy</option>
+        {% for name in strategies %}
+        <option value="{{ name }}">{{ name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div id="strategy-params" class="space-y-3"></div>
+    <div class="grid gap-4 md:grid-cols-2">
+      <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+        Start date
+        <input type="date" name="start_date" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+      </label>
+      <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+        End date
+        <input type="date" name="end_date" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+      </label>
+    </div>
+    <div class="flex items-center justify-end gap-3">
+      <button class="rounded-full border border-slate-700 px-4 py-2 text-sm text-white" type="button" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML">Cancel</button>
+      <button class="rounded-full bg-gradient-to-r from-emerald-300 via-sky-400 to-amber-300 px-5 py-2 text-sm font-semibold text-slate-900" type="submit">Start</button>
+    </div>
+  </form>
+</div>
+{% if bots %}
+<div id="bot-list" class="space-y-3" hx-swap-oob="innerHTML">
+  {% if bots %}
+    {% for bot in bots %}
+    <a class="block rounded-2xl border border-slate-800 bg-slate-900/60 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300/50" href="/bots/{{ bot.bot_id }}">
+      <div class="flex items-center justify-between text-sm font-semibold text-white">
+        <span>{{ bot.label or bot.symbol or bot.bot_id }}</span>
+        <span class="rounded-full px-3 py-1 text-xs font-semibold {% if bot.status == 'RUNNING' %}bg-emerald-400/20 text-emerald-200{% elif bot.status == 'STOPPED' %}bg-rose-400/20 text-rose-200{% else %}bg-slate-700/60 text-slate-200{% endif %}">
+          {{ bot.status }}
+        </span>
+      </div>
+      <div class="mt-2 text-xs text-slate-400">
+        {{ bot.mode }} · {{ bot.source }} · {{ bot.symbol }} · {{ bot.timeframe.name }} · {{ bot.strategy }}
+      </div>
+    </a>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endif %}

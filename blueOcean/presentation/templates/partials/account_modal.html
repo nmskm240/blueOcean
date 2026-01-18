@@ -1,0 +1,58 @@
+<div class="fixed inset-0 bg-slate-950/70" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML"></div>
+<div class="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
+  <div class="mb-4 flex items-center justify-between">
+    <h3 class="text-lg font-semibold text-white">Add Account</h3>
+    <button class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML">x</button>
+  </div>
+  {% if message %}
+  <p class="mb-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-200">{{ message }}</p>
+  {% endif %}
+  <form class="space-y-4" hx-post="/htmx/accounts" hx-target="#modal" hx-swap="innerHTML">
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Exchange
+      <select name="exchange_name" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white">
+        <option value="">Select exchange</option>
+        {% for exchange in exchanges %}
+        <option value="{{ exchange }}">{{ exchange }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Label
+      <input name="label" type="text" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+    </label>
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      API Key
+      <input name="api_key" type="text" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+    </label>
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      API Secret
+      <input name="api_secret" type="password" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+    </label>
+    <label class="flex items-center gap-3 text-sm text-slate-300">
+      <input name="is_sandbox" type="checkbox" class="h-4 w-4 rounded border-slate-700 bg-slate-950" checked />
+      Sandbox mode
+    </label>
+    <div class="flex items-center justify-end gap-3">
+      <button class="rounded-full border border-slate-700 px-4 py-2 text-sm text-white" type="button" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML">Cancel</button>
+      <button class="rounded-full bg-gradient-to-r from-emerald-300 via-sky-400 to-amber-300 px-5 py-2 text-sm font-semibold text-slate-900" type="submit">Save</button>
+    </div>
+  </form>
+</div>
+{% if accounts %}
+<div id="accounts-list" class="space-y-3" hx-swap-oob="innerHTML">
+  {% for account in accounts %}
+  <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+    <div class="flex items-center justify-between text-sm font-semibold text-white">
+      <span>{{ account.label or account.exchange_name }}</span>
+      <span class="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-200">
+        {{ "sandbox" if account.is_sandbox else "live" }}
+      </span>
+    </div>
+    <div class="mt-2 text-xs text-slate-400">
+      {{ account.exchange_name }} · {{ account.account_id }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

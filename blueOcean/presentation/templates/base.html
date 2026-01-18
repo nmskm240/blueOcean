@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }} | BlueOcean</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+      #modal:empty {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
+      <aside class="border-b border-slate-800 bg-slate-950/80 p-6 backdrop-blur lg:border-b-0 lg:border-r">
+        <div class="mb-8 flex items-center gap-3">
+          <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-emerald-300 via-sky-400 to-amber-300 shadow-xl"></div>
+          <div class="flex flex-col font-semibold">
+            <span class="text-lg">BlueOcean</span>
+            <span class="text-xs uppercase tracking-[0.3em] text-slate-400">Control Deck</span>
+          </div>
+        </div>
+        <nav class="flex flex-wrap gap-2 lg:flex-col">
+          {% for item in nav_items %}
+          <a
+            class="rounded-full border border-transparent px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-emerald-300/40 hover:text-white {% if item.active %}border-emerald-300/60 bg-emerald-400/10 text-white{% endif %}"
+            href="{{ item.href }}"
+          >
+            {{ item.label }}
+          </a>
+          {% endfor %}
+        </nav>
+      </aside>
+      <main class="p-6 lg:p-12">
+        <header class="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span class="text-xs uppercase tracking-[0.3em] text-slate-400">{{ title }}</span>
+            <h1 class="text-4xl font-semibold text-white">{{ title }}</h1>
+          </div>
+          <div class="flex items-center gap-3">
+            <button
+              class="rounded-full border border-slate-700 px-5 py-2 text-sm font-semibold text-white transition hover:border-emerald-300/60 hover:text-emerald-200"
+              hx-get="/htmx/ohlcv"
+              hx-target="#modal"
+              hx-swap="innerHTML"
+            >
+              Fetch OHLCV
+            </button>
+          </div>
+        </header>
+        <section>
+          {% block content %}{% endblock %}
+        </section>
+      </main>
+    </div>
+    <div id="modal" class="fixed inset-0 z-50 grid place-items-center p-6"></div>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+<div class="fixed inset-0 bg-slate-950/70" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML"></div>
+<div class="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
+  <div class="mb-4 flex items-center justify-between">
+    <h3 class="text-lg font-semibold text-white">Fetch OHLCV</h3>
+    <button class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML">x</button>
+  </div>
+  {% if message %}
+  <p class="mb-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-200">{{ message }}</p>
+  {% endif %}
+  <form class="space-y-4" hx-post="/htmx/ohlcv" hx-target="#modal" hx-swap="innerHTML">
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Account
+      <select name="account_id" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" {% if not accounts %}disabled{% endif %}>
+        <option value="">Select account</option>
+        {% for account in accounts %}
+        <option value="{{ account.account_id }}">{{ account.label or account.exchange_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block text-xs uppercase tracking-[0.2em] text-slate-400">
+      Symbol
+      <input name="symbol" type="text" placeholder="BTC/USDT" class="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-white" />
+    </label>
+    <div class="flex items-center justify-end gap-3">
+      <button class="rounded-full border border-slate-700 px-4 py-2 text-sm text-white" type="button" hx-get="/htmx/close-modal" hx-target="#modal" hx-swap="innerHTML">Cancel</button>
+      <button class="rounded-full bg-gradient-to-r from-emerald-300 via-sky-400 to-amber-300 px-5 py-2 text-sm font-semibold text-slate-900" type="submit" {% if not accounts %}disabled{% endif %}>Save</button>
+    </div>
+  </form>
+</div>
