@@ -6,17 +6,14 @@ from typing import Any
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from blueOcean.domain.bot import BotId
 from blueOcean.domain.ohlcv import Timeframe
-from blueOcean.presentation.reporting import build_report
 from blueOcean.presentation.scopes import (
     AppScope,
     BacktestDialogScope,
-    BotDetailPageScope,
-    BotTopPageScope,
+    SessionDetailPageScope,
+    SessionTopPageScope,
     OhlcvFetchDialogScope,
 )
 from blueOcean.shared.registries import StrategyRegistry
@@ -34,7 +31,7 @@ def create_app() -> FastAPI:
     def nav_items(current: str) -> list[dict[str, Any]]:
         items = [
             {"label": "Home", "href": "/"},
-            {"label": "Bots", "href": "/bots"},
+            {"label": "Sessions", "href": "/sessions"},
             {"label": "Strategies", "href": "/strategies"},
         ]
         for item in items:
@@ -53,31 +50,34 @@ def create_app() -> FastAPI:
         context = base_context(request, "Home")
         return templates.TemplateResponse("pages/home.html", context)
 
-    @app.get("/bots", response_class=HTMLResponse)
-    def bots(request: Request):
-        scope = BotTopPageScope(request.app.state.app_scope)
+    @app.get("/sessions", response_class=HTMLResponse)
+    def sessions(request: Request):
+        scope = SessionTopPageScope(request.app.state.app_scope)
         state = scope.notifier.state
-        context = base_context(request, "Bots")
-        context["bots"] = state.bots
+        context = base_context(request, "Sessions")
+        context["sessions"] = state.sessions
         return templates.TemplateResponse("pages/bots.html", context)
 
-    @app.get("/bots/{bot_id}", response_class=HTMLResponse)
-    def bot_detail(request: Request, bot_id: str):
+    @app.get("/sessions/{session_id}", response_class=HTMLResponse)
+    def session_detail(request: Request, session_id: str):
         try:
-            scope = BotDetailPageScope(request.app.state.app_scope, BotId(bot_id))
+            scope = SessionDetailPageScope(
+                request.app.state.app_scope,
+                session_id,
+            )
             state = scope.notifier.state
-            bot = state.info
-            report = build_report(state.time_returns)
+            session = state.session
+            contexts = state.contexts
             error = None
         except Exception as exc:
-            bot = None
-            report = None
+            session = None
+            contexts = []
             error = str(exc)
-        context = base_context(request, "Bot Detail")
+        context = base_context(request, "Session Detail")
         context.update(
             {
-                "bot": bot,
-                "report": report,
+                "session": session,
+                "contexts": contexts,
                 "error": error,
             }
         )
@@ -185,15 +185,15 @@ def create_app() -> FastAPI:
         )
         notifier.on_request_backtest()
 
-        bot_scope = BotTopPageScope(request.app.state.app_scope)
-        bots = bot_scope.notifier.state.bots
+        session_scope = SessionTopPageScope(request.app.state.app_scope)
+        sessions = session_scope.notifier.state.sessions
         context = {
             "request": request,
             "exchanges": scope.exchange_symbol_accessor.exchanges,
             "timeframes": [e.name for e in Timeframe],
             "strategies": [name for name, _ in StrategyRegistry],
             "message": "Backtest started.",
-            "bots": bots,
+            "sessions": sessions,
         }
         return templates.TemplateResponse("partials/backtest_modal.html", context)
 
