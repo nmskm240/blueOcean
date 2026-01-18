@@ -31,8 +31,9 @@ from blueOcean.infra.accessors import (
     LocalBotRuntimeDirectoryAccessor,
 )
 from blueOcean.infra.database.entities import (
-    BotContextEntity,
-    BotEntity,
+    ContextEntity,
+    SessionEntity,
+    StrategySnapshotEntity,
     proxy,
 )
 from blueOcean.infra.database.repositories import BotRepository, OhlcvRepository
@@ -52,8 +53,9 @@ class AppDatabaseModule(Module):
         proxy.initialize(db)
         db.create_tables(
             [
-                BotEntity,
-                BotContextEntity,
+                SessionEntity,
+                ContextEntity,
+                StrategySnapshotEntity,
             ]
         )
         return db

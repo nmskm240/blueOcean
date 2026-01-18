@@ -4,6 +4,7 @@ from datetime import datetime
 
 from peewee import (
     CharField,
+    CompositeKey,
     DatabaseProxy,
     DateTimeField,
     ForeignKeyField,
@@ -20,32 +21,48 @@ class BaseModel(Model):
         database = proxy
 
 
-class BotEntity(BaseModel):
+class SessionEntity(BaseModel):
     id = CharField(primary_key=True)
-    status = IntegerField(index=True)
-    pid = IntegerField(null=True)
-    label = CharField(null=True)
-    started_at = DateTimeField(null=True)
-    finished_at = DateTimeField(null=True)
+    name = TextField(null=True)
     created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(default=datetime.now)
 
     class Meta:
-        table_name = "bots"
+        table_name = "sessions"
 
 
-class BotContextEntity(BaseModel):
-    bot_id = ForeignKeyField(BotEntity, on_delete="CASCADE", unique=True)
-    mode = IntegerField(index=True)
-    strategy_name = CharField(index=True)
-    strategy_args = TextField()
+class StrategySnapshotEntity(BaseModel):
+    id = CharField(primary_key=True)
+    name = CharField()
+    created_at = DateTimeField(default=datetime.now)
+
+    class Meta:
+        table_name = "strategy_snapshots"
+
+
+class ContextEntity(BaseModel):
+    id = CharField(primary_key=True)
+    strategy_snapshot = ForeignKeyField(StrategySnapshotEntity, on_delete="RESTRICT")
+
+    status = IntegerField(default=0)
     source = CharField()
     symbol = CharField()
     timeframe = IntegerField(default=1)
-    # memo: バックテスト用
-    started_at = DateTimeField(null=True)
-    finished_at = DateTimeField(null=True)
+    started_at = DateTimeField()
+    finished_at = DateTimeField()
+    parameters_json = TextField()
+
+    created_at = DateTimeField(default=datetime.now)
 
     class Meta:
-        table_name = "bot_contexts"
+        table_name = "contexts"
         indexes = ((("source", "symbol"), False),)
+
+
+class SessionContextEntity(BaseModel):
+    session_id = ForeignKeyField(SessionEntity, on_delete="CASCADE")
+    context_id = ForeignKeyField(ContextEntity, on_delete="CASCADE", unique=True)
+
+    class Meta:
+        table_name = "session_contexts"
+        primary_key = CompositeKey("session_id", "context_id")
