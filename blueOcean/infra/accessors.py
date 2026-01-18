@@ -6,15 +6,15 @@ from injector import inject
 import pandas as pd
 
 from blueOcean.application.accessors import (
-    IBotRuntimeDirectoryAccessor,
+    IContextRuntimeDirectoryAccessor,
     IExchangeSymbolAccessor,
 )
-from blueOcean.domain.bot import BotId
+from blueOcean.domain.context import ContextId
 
 
-class LocalBotRuntimeDirectoryAccessor(IBotRuntimeDirectoryAccessor):
+class LocalContextRuntimeDirectoryAccessor(IContextRuntimeDirectoryAccessor):
     @inject
-    def __init__(self, id: BotId):
+    def __init__(self, id: ContextId):
         self._id = id
 
     @property

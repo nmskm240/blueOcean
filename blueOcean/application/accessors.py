@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 
-class IBotRuntimeDirectoryAccessor(metaclass=ABCMeta):
+class IContextRuntimeDirectoryAccessor(metaclass=ABCMeta):
     @property
     @abstractmethod
     def metrics(self) -> pd.DataFrame:
