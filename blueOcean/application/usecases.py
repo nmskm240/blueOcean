@@ -133,5 +133,5 @@ class LaunchBacktestSessionUsecase:
 
         session = Session(name=session_name or "")
         self._session_repository.save(session)
-        self._context_repository.link_to_session(session.id, context.id)
+
         return session.id.value
