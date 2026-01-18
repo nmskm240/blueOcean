@@ -2,14 +2,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Flet",
+            "name": "HTMX",
             "type": "debugpy",
             "request": "launch",
-            "module": "flet.cli",
+            "module": "uvicorn",
             "args": [
-                "run",
-                "main.py",
-                "--web",
+                "blueOcean.presentation.web:create_app",
+                "--factory",
+                "--host",
+                "0.0.0.0",
                 "--port",
                 "8501"
             ],

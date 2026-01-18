@@ -6,7 +6,7 @@ nbformat = pytest.importorskip("nbformat")
 nbconvert = pytest.importorskip("nbconvert")
 MarkdownExporter = nbconvert.MarkdownExporter
 
-from blueOcean.jupyter.preprocessor import MarkdownInlineFigurePreprocessor
+from blueOcean.application.preprocessor import MarkdownInlineFigurePreprocessor
 
 
 def _build_notebook_with_image() -> nbformat.NotebookNode:

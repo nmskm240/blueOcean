@@ -3,21 +3,29 @@
 {% block content %}
 <div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-4">
-    <h2 class="text-2xl font-semibold text-white">{{ bot.label or bot.symbol or bot.bot_id if bot else "Bot Detail" }}</h2>
-    <a class="rounded-full border border-slate-700 px-5 py-2 text-sm font-semibold text-white transition hover:border-emerald-300/60 hover:text-emerald-200" href="/bots">Back to Bots</a>
+    <h2 class="text-2xl font-semibold text-white">{{ session.name or session.session_id if session else "Session Detail" }}</h2>
+    <a class="rounded-full border border-slate-700 px-5 py-2 text-sm font-semibold text-white transition hover:border-emerald-300/60 hover:text-emerald-200" href="/sessions">Back to Sessions</a>
   </div>
   {% if error %}
     <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">{{ error }}</div>
   {% else %}
     <div class="flex flex-wrap gap-3 text-xs uppercase tracking-[0.2em] text-slate-400">
-      <span>{{ bot.mode }}</span>
-      <span>{{ bot.status }}</span>
-      <span>{{ bot.source }}</span>
-      <span>{{ bot.symbol }}</span>
-      <span>{{ bot.timeframe.name }}</span>
-      <span>{{ bot.strategy }}</span>
+      <span>Session ID: {{ session.session_id }}</span>
     </div>
-    {% include "partials/report.html" %}
+    <div class="space-y-3">
+      {% if contexts %}
+        {% for context in contexts %}
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-200">
+          <div class="font-semibold text-white">{{ context.symbol }} · {{ context.source }}</div>
+          <div class="mt-1 text-xs text-slate-400">
+            {{ context.timeframe }} · {{ context.start_at }} - {{ context.end_at }}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">No contexts found.</div>
+      {% endif %}
+    </div>
   {% endif %}
 </div>
 {% endblock %}

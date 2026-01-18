@@ -6,17 +6,14 @@ from blueOcean.application.accessors import IExchangeSymbolAccessor
 from blueOcean.application.di import (
     AppModule,
     BacktestDialogModule,
-    BotDetailModule,
     FetchModule,
+    SessionDetailModule,
 )
-from blueOcean.domain.bot import BotId
 from blueOcean.presentation.notifiers import (
-    AccountCredentialDialogNotifier,
-    AccountPageNotifier,
     BacktestDialogNotifier,
-    BotDetailPageNotifier,
-    BotTopPageNotifier,
     OhlcvFetchDialogNotifier,
+    SessionDetailPageNotifier,
+    SessionTopPageNotifier,
 )
 
 
@@ -37,53 +34,35 @@ class AppScope(Scope):
         )
 
 
-class AccountPageScope(Scope):
+class SessionTopPageScope(Scope):
     def __init__(self, parent: Scope):
         super().__init__(Injector([], parent=parent._injector))
 
     @property
-    def notifier(self) -> AccountPageNotifier:
-        return self._injector.get(AccountPageNotifier)
+    def notifier(self) -> SessionTopPageNotifier:
+        return self._injector.get(SessionTopPageNotifier)
 
 
-class BotTopPageScope(Scope):
-    def __init__(self, parent: Scope):
-        super().__init__(Injector([], parent=parent._injector))
-
-    @property
-    def notifier(self) -> BotTopPageNotifier:
-        return self._injector.get(BotTopPageNotifier)
-
-
-class BotDetailPageScope(Scope):
-    def __init__(self, parent: Scope, bot_id: BotId):
+class SessionDetailPageScope(Scope):
+    def __init__(self, parent: Scope, session_id: str):
         super().__init__(
             Injector(
                 [
-                    BotDetailModule(bot_id),
+                    SessionDetailModule(session_id),
                 ],
                 parent=parent._injector,
             )
         )
 
-        self._bot_id = bot_id
+        self._session_id = session_id
 
     @property
-    def bot_id(self) -> BotId:
-        return self._bot_id
+    def session_id(self) -> str:
+        return self._session_id
 
     @property
-    def notifier(self) -> BotDetailPageNotifier:
-        return self._injector.get(BotDetailPageNotifier)
-
-
-class AccountCredentialDialogScope(Scope):
-    def __init__(self, parent: Scope):
-        super().__init__(Injector([], parent=parent._injector))
-
-    @property
-    def notifier(self) -> AccountCredentialDialogNotifier:
-        return self._injector.get(AccountCredentialDialogNotifier)
+    def notifier(self) -> SessionDetailPageNotifier:
+        return self._injector.get(SessionDetailPageNotifier)
 
 
 class OhlcvFetchDialogScope(Scope):

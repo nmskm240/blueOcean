@@ -57,19 +57,16 @@
     </div>
   </form>
 </div>
-{% if bots %}
-<div id="bot-list" class="space-y-3" hx-swap-oob="innerHTML">
-  {% if bots %}
-    {% for bot in bots %}
-    <a class="block rounded-2xl border border-slate-800 bg-slate-900/60 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300/50" href="/bots/{{ bot.bot_id }}">
+{% if sessions %}
+<div id="session-list" class="space-y-3" hx-swap-oob="innerHTML">
+  {% if sessions %}
+    {% for session in sessions %}
+    <a class="block rounded-2xl border border-slate-800 bg-slate-900/60 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300/50" href="/sessions/{{ session.session_id }}">
       <div class="flex items-center justify-between text-sm font-semibold text-white">
-        <span>{{ bot.label or bot.symbol or bot.bot_id }}</span>
-        <span class="rounded-full px-3 py-1 text-xs font-semibold {% if bot.status == 'RUNNING' %}bg-emerald-400/20 text-emerald-200{% elif bot.status == 'STOPPED' %}bg-rose-400/20 text-rose-200{% else %}bg-slate-700/60 text-slate-200{% endif %}">
-          {{ bot.status }}
-        </span>
+        <span>{{ session.name or session.session_id }}</span>
       </div>
       <div class="mt-2 text-xs text-slate-400">
-        {{ bot.mode }} · {{ bot.source }} · {{ bot.symbol }} · {{ bot.timeframe.name }} · {{ bot.strategy }}
+        Session ID: {{ session.session_id }}
       </div>
     </a>
     {% endfor %}

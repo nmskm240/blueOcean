@@ -21,9 +21,6 @@ dependencies = [
     "nbformat>=4.2.0",
     "nbconvert",
     "ipykernel",
-    "flet",
-    "flet-desktop",
-    "flet-route",
     "quantstats",
     "logging",
     "python-dotenv",
@@ -33,6 +30,10 @@ dependencies = [
     "cuid2",
     "injector",
     "isort",
+    "fastapi",
+    "uvicorn",
+    "jinja2",
+    "python-multipart",
 ]
 
 [tool.setuptools.packages.find]
