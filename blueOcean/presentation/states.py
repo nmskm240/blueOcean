@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any
 
-from blueOcean.application.dto import BotInfo, TimeReturnPoint
+from blueOcean.application.dto import ContextInfo, SessionInfo
 from blueOcean.domain.ohlcv import Timeframe
 
 
@@ -25,11 +25,11 @@ class BacktestDialogState:
 
 
 @dataclass(frozen=True)
-class BotTopPageState:
-    bots: list[BotInfo] = field(default_factory=list)
+class SessionTopPageState:
+    sessions: list[SessionInfo] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
-class BotDetailPageState:
-    info: BotInfo = field(default=None)
-    time_returns: list[TimeReturnPoint] = field(default_factory=list)
+class SessionDetailPageState:
+    session: SessionInfo | None = field(default=None)
+    contexts: list[ContextInfo] = field(default_factory=list)

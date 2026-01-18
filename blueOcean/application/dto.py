@@ -1,14 +1,7 @@
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Type
-
-import backtrader as bt
-
-from blueOcean.domain.bot import BacktestContext
-from blueOcean.domain.ohlcv import Timeframe
 
 
 @dataclass(frozen=True)
@@ -20,49 +13,23 @@ class DatetimeRange:
         return self.start_at <= date < self.end_at
 
 
-@dataclass
-class IBotConfig[TContext](metaclass=ABCMeta):
-    source: str = field(default="")
-    symbol: str = field(default="")
-    timeframe: Timeframe = field(default=Timeframe.ONE_MINUTE)
-    strategy_cls: Type[bt.Strategy] = field(default=None)
-    strategy_args: dict[str, Any] = field(default_factory=dict)
-
-    @abstractmethod
-    def to_context(self) -> TContext:
-        raise NotImplementedError()
-
-
-@dataclass
-@dataclass
-class BacktestConfig(IBotConfig[BacktestContext]):
-    cash: int = field(default=10000)
-    time_range: DatetimeRange = field(default_factory=DatetimeRange)
-
-    def to_context(self):
-        return BacktestContext(
-            strategy_cls=self.strategy_cls,
-            strategy_args=self.strategy_args,
-            source=self.source,
-            symbol=self.symbol,
-            timeframe=self.timeframe,
-            start_at=self.time_range.start_at,
-            end_at=self.time_range.end_at,
-        )
+@dataclass(frozen=True)
+class SessionInfo:
+    session_id: str
+    name: str
 
 
 @dataclass(frozen=True)
-class BotInfo:
-    bot_id: str
-    label: str
-    status: str
-    mode: str
+class ContextInfo:
+    context_id: str
+    session_id: str
+    strategy_snapshot_id: str
     source: str
     symbol: str
-    timeframe: Timeframe
-    strategy: str
-    started_at: datetime | None
-    finished_at: datetime | None
+    timeframe: str
+    start_at: datetime
+    end_at: datetime
+    strategy_args: dict[str, object]
 
 
 @dataclass(frozen=True)

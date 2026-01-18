@@ -3,27 +3,24 @@ import datetime
 
 from injector import inject
 
-from blueOcean.application.dto import BacktestConfig, DatetimeRange
 from blueOcean.application.usecases import (
-    FetchBotsUsecase,
-    FetchBotTimeReturnsUsecase,
     FetchFetchableExchangesUsecase,
     FetchOhlcvUsecase,
-    LaunchBotUsecase,
+    FetchSessionContextsUsecase,
+    FetchSessionsUsecase,
+    LaunchBacktestSessionUsecase,
 )
-from blueOcean.domain.bot import BotId
 from blueOcean.presentation.states import (
     BacktestDialogState,
-    BotDetailPageState,
-    BotTopPageState,
     OhlcvFetchDialogState,
+    SessionDetailPageState,
+    SessionTopPageState,
 )
-from blueOcean.shared.registries import StrategyRegistry
 
 
 class BacktestDialogNotifier:
     @inject
-    def __init__(self, launch_usecase: LaunchBotUsecase):
+    def __init__(self, launch_usecase: LaunchBacktestSessionUsecase):
         self._state = BacktestDialogState()
         self._launch_usecase = launch_usecase
 
@@ -35,9 +32,20 @@ class BacktestDialogNotifier:
         self._state = dataclasses.replace(self._state, **kwargs)
 
     def on_request_backtest(self):
-        self._launch_usecase.execute(self._build_config())
+        start_at, end_at = self._build_time_range()
+        if not self._state.strategy:
+            return
+        self._launch_usecase.execute(
+            source=self._state.source,
+            symbol=self._state.symbol,
+            timeframe=self._state.timeframe,
+            strategy_name=self._state.strategy,
+            strategy_args=self._state.strategy_args,
+            start_at=start_at,
+            end_at=end_at,
+        )
 
-    def _build_config(self) -> BacktestConfig:
+    def _build_time_range(self) -> tuple[datetime.datetime, datetime.datetime]:
         start_at = (
             datetime.datetime.combine(self._state.start_date, datetime.time.min)
             if self._state.start_date
@@ -48,20 +56,7 @@ class BacktestDialogNotifier:
             if self._state.end_date
             else datetime.datetime.max
         )
-        time_range = DatetimeRange(start_at=start_at, end_at=end_at)
-        strategy_cls = (
-            StrategyRegistry.resolve(self._state.strategy)
-            if self._state.strategy
-            else None
-        )
-        return BacktestConfig(
-            source=self._state.source,
-            symbol=self._state.symbol,
-            timeframe=self._state.timeframe,
-            strategy_cls=strategy_cls,
-            strategy_args=self._state.strategy_args,
-            time_range=time_range,
-        )
+        return start_at, end_at
 
 
 class OhlcvFetchDialogNotifier:
@@ -93,36 +88,38 @@ class OhlcvFetchDialogNotifier:
             self._state.symbol,
         )
 
-class BotTopPageNotifier:
+class SessionTopPageNotifier:
     @inject
-    def __init__(self, fetch_usecase: FetchBotsUsecase):
+    def __init__(self, fetch_usecase: FetchSessionsUsecase):
         self._fetch_usecase = fetch_usecase
-        self._state = BotTopPageState(bots=self._fetch_usecase.execute())
+        self._state = SessionTopPageState(sessions=self._fetch_usecase.execute())
 
     @property
-    def state(self) -> BotTopPageState:
+    def state(self) -> SessionTopPageState:
         return self._state
 
     def update(self):
-        self._state = BotTopPageState(bots=self._fetch_usecase.execute())
+        self._state = SessionTopPageState(sessions=self._fetch_usecase.execute())
 
 
-class BotDetailPageNotifier:
+class SessionDetailPageNotifier:
     @inject
     def __init__(
         self,
-        bot_id: BotId,
-        fetch_bots_usecase: FetchBotsUsecase,
-        fetch_time_returns_usecase: FetchBotTimeReturnsUsecase,
+        session_id: str,
+        fetch_sessions_usecase: FetchSessionsUsecase,
+        fetch_contexts_usecase: FetchSessionContextsUsecase,
     ):
-        self._id = bot_id
-        self._fetch_bots_usecase = fetch_bots_usecase
-        self._fetch_time_returns_usecase = fetch_time_returns_usecase
-        self._state = BotDetailPageState(
-            info=self._fetch_bots_usecase.execute(bot_id)[0],
-            time_returns=self._fetch_time_returns_usecase.execute(),
+        self._id = session_id
+        self._fetch_sessions_usecase = fetch_sessions_usecase
+        self._fetch_contexts_usecase = fetch_contexts_usecase
+        sessions = self._fetch_sessions_usecase.execute(session_id)
+        session = sessions[0] if sessions else None
+        self._state = SessionDetailPageState(
+            session=session,
+            contexts=self._fetch_contexts_usecase.execute(session_id),
         )
 
     @property
-    def state(self) -> BotDetailPageState:
+    def state(self) -> SessionDetailPageState:
         return self._state
