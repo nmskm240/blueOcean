@@ -23,181 +23,194 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 
 
-def create_app() -> FastAPI:
-    app = FastAPI()
-    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-    app.state.app_scope = AppScope()
+app = FastAPI()
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+app.state.app_scope = AppScope()
 
-    def nav_items(current: str) -> list[dict[str, Any]]:
-        items = [
-            {"label": "Home", "href": "/"},
-            {"label": "Sessions", "href": "/sessions"},
-            {"label": "Strategies", "href": "/strategies"},
-        ]
-        for item in items:
-            item["active"] = item["href"] == current
-        return items
 
-    def base_context(request: Request, title: str) -> dict[str, Any]:
-        return {
-            "request": request,
-            "title": title,
-            "nav_items": nav_items(request.url.path),
-        }
+def nav_items(current: str) -> list[dict[str, Any]]:
+    items = [
+        {"label": "Home", "href": "/"},
+        {"label": "Sessions", "href": "/sessions"},
+        {"label": "Strategies", "href": "/strategies"},
+    ]
+    for item in items:
+        item["active"] = item["href"] == current
+    return items
 
-    @app.get("/", response_class=HTMLResponse)
-    def home(request: Request):
-        context = base_context(request, "Home")
-        return templates.TemplateResponse("pages/home.html", context)
 
-    @app.get("/sessions", response_class=HTMLResponse)
-    def sessions(request: Request):
-        scope = SessionTopPageScope(request.app.state.app_scope)
+def base_context(request: Request, title: str) -> dict[str, Any]:
+    return {
+        "request": request,
+        "title": title,
+        "nav_items": nav_items(request.url.path),
+    }
+
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    context = base_context(request, "Home")
+    return templates.TemplateResponse("pages/home.html", context)
+
+
+@app.get("/sessions", response_class=HTMLResponse)
+def sessions(request: Request):
+    scope = SessionTopPageScope(request.app.state.app_scope)
+    state = scope.notifier.state
+    context = base_context(request, "Sessions")
+    context["sessions"] = state.sessions
+    return templates.TemplateResponse("pages/bots.html", context)
+
+
+@app.get("/sessions/{session_id}", response_class=HTMLResponse)
+def session_detail(request: Request, session_id: str):
+    try:
+        scope = SessionDetailPageScope(
+            request.app.state.app_scope,
+            session_id,
+        )
         state = scope.notifier.state
-        context = base_context(request, "Sessions")
-        context["sessions"] = state.sessions
-        return templates.TemplateResponse("pages/bots.html", context)
+        session = state.session
+        contexts = state.contexts
+        error = None
+    except Exception as exc:
+        session = None
+        contexts = []
+        error = str(exc)
+    context = base_context(request, "Session Detail")
+    context.update(
+        {
+            "session": session,
+            "contexts": contexts,
+            "error": error,
+        }
+    )
+    return templates.TemplateResponse("pages/bot_detail.html", context)
 
-    @app.get("/sessions/{session_id}", response_class=HTMLResponse)
-    def session_detail(request: Request, session_id: str):
+
+@app.get("/strategies", response_class=HTMLResponse)
+def strategies(request: Request):
+    strategies_list = [name for name, _ in StrategyRegistry]
+    context = base_context(request, "Strategies")
+    context["strategies"] = strategies_list
+    return templates.TemplateResponse("pages/strategies.html", context)
+
+
+@app.get("/htmx/close-modal", response_class=HTMLResponse)
+def close_modal():
+    return ""
+
+
+@app.get("/htmx/ohlcv", response_class=HTMLResponse)
+def ohlcv_dialog(request: Request):
+    scope = OhlcvFetchDialogScope(request.app.state.app_scope)
+    state = scope.notifier.state
+    context = {
+        "request": request,
+        "exchanges": state.exchanges,
+    }
+    return templates.TemplateResponse("partials/ohlcv_modal.html", context)
+
+
+@app.post("/htmx/ohlcv", response_class=HTMLResponse)
+def ohlcv_submit(
+    request: Request,
+    exchange: str = Form(""),
+    symbol: str = Form(""),
+):
+    scope = OhlcvFetchDialogScope(request.app.state.app_scope)
+    notifier = scope.notifier
+    state = notifier.state
+    notifier.update(exchange=exchange, symbol=symbol)
+    notifier.submit()
+    context = {
+        "request": request,
+        "exchanges": state.exchanges,
+        "message": "Saved price data request.",
+    }
+    return templates.TemplateResponse("partials/ohlcv_modal.html", context)
+
+
+@app.get("/htmx/backtest", response_class=HTMLResponse)
+def backtest_dialog(request: Request):
+    scope = BacktestDialogScope(request.app.state.app_scope)
+    context = {
+        "request": request,
+        "exchanges": scope.exchange_symbol_accessor.exchanges,
+        "timeframes": [e.name for e in Timeframe],
+        "strategies": [name for name, _ in StrategyRegistry],
+    }
+    return templates.TemplateResponse("partials/backtest_modal.html", context)
+
+
+@app.get("/htmx/exchange-symbols", response_class=HTMLResponse)
+def exchange_symbols(request: Request, exchange: str | None = None):
+    scope = BacktestDialogScope(request.app.state.app_scope)
+    if exchange:
         try:
-            scope = SessionDetailPageScope(
-                request.app.state.app_scope,
-                session_id,
-            )
-            state = scope.notifier.state
-            session = state.session
-            contexts = state.contexts
-            error = None
-        except Exception as exc:
-            session = None
-            contexts = []
-            error = str(exc)
-        context = base_context(request, "Session Detail")
-        context.update(
-            {
-                "session": session,
-                "contexts": contexts,
-                "error": error,
-            }
-        )
-        return templates.TemplateResponse("pages/bot_detail.html", context)
-
-    @app.get("/strategies", response_class=HTMLResponse)
-    def strategies(request: Request):
-        strategies_list = [name for name, _ in StrategyRegistry]
-        context = base_context(request, "Strategies")
-        context["strategies"] = strategies_list
-        return templates.TemplateResponse("pages/strategies.html", context)
-
-    @app.get("/htmx/close-modal", response_class=HTMLResponse)
-    def close_modal():
-        return ""
-
-    @app.get("/htmx/ohlcv", response_class=HTMLResponse)
-    def ohlcv_dialog(request: Request):
-        scope = OhlcvFetchDialogScope(request.app.state.app_scope)
-        state = scope.notifier.state
-        context = {
-            "request": request,
-            "exchanges": state.exchanges,
-        }
-        return templates.TemplateResponse("partials/ohlcv_modal.html", context)
-
-    @app.post("/htmx/ohlcv", response_class=HTMLResponse)
-    def ohlcv_submit(
-        request: Request,
-        exchange: str = Form(""),
-        symbol: str = Form(""),
-    ):
-        scope = OhlcvFetchDialogScope(request.app.state.app_scope)
-        notifier = scope.notifier
-        state = notifier.state
-        notifier.update(exchange=exchange, symbol=symbol)
-        notifier.submit()
-        context = {
-            "request": request,
-            "exchanges": state.exchanges,
-            "message": "Saved price data request.",
-        }
-        return templates.TemplateResponse("partials/ohlcv_modal.html", context)
-
-    @app.get("/htmx/backtest", response_class=HTMLResponse)
-    def backtest_dialog(request: Request):
-        scope = BacktestDialogScope(request.app.state.app_scope)
-        context = {
-            "request": request,
-            "exchanges": scope.exchange_symbol_accessor.exchanges,
-            "timeframes": [e.name for e in Timeframe],
-            "strategies": [name for name, _ in StrategyRegistry],
-        }
-        return templates.TemplateResponse("partials/backtest_modal.html", context)
-
-    @app.get("/htmx/exchange-symbols", response_class=HTMLResponse)
-    def exchange_symbols(request: Request, exchange: str | None = None):
-        scope = BacktestDialogScope(request.app.state.app_scope)
-        if exchange:
-            try:
-                symbols = scope.exchange_symbol_accessor.symbols_for(exchange)
-            except FileNotFoundError:
-                symbols = []
-        else:
+            symbols = scope.exchange_symbol_accessor.symbols_for(exchange)
+        except FileNotFoundError:
             symbols = []
-        context = {
-            "request": request,
-            "symbols": symbols,
-        }
-        return templates.TemplateResponse("partials/symbol_options.html", context)
+    else:
+        symbols = []
+    context = {
+        "request": request,
+        "symbols": symbols,
+    }
+    return templates.TemplateResponse("partials/symbol_options.html", context)
 
-    @app.get("/htmx/strategy-params", response_class=HTMLResponse)
-    def strategy_params(request: Request, strategy: str | None = None):
-        params: list[dict[str, Any]] = []
-        if strategy:
-            params = [_param_context(name, default) for name, default in StrategyRegistry.params_of(strategy)]
-        context = {
-            "request": request,
-            "params": params,
-        }
-        return templates.TemplateResponse("partials/strategy_params.html", context)
 
-    @app.post("/htmx/backtest", response_class=HTMLResponse)
-    async def backtest_submit(
-        request: Request,
-        exchange: str = Form(""),
-        symbol: str = Form(""),
-        timeframe: str = Form(Timeframe.ONE_MINUTE.name),
-        strategy: str | None = Form(None),
-        start_date: str | None = Form(None),
-        end_date: str | None = Form(None),
-    ):
-        scope = BacktestDialogScope(request.app.state.app_scope)
-        notifier = scope.notifier
-        form = await request.form()
-        params = _parse_strategy_args(form, strategy)
-        notifier.update(
-            source=exchange,
-            symbol=symbol,
-            timeframe=_parse_timeframe(timeframe),
-            strategy=strategy,
-            strategy_args=params,
-            start_date=_parse_date(start_date),
-            end_date=_parse_date(end_date),
-        )
-        notifier.on_request_backtest()
+@app.get("/htmx/strategy-params", response_class=HTMLResponse)
+def strategy_params(request: Request, strategy: str | None = None):
+    params: list[dict[str, Any]] = []
+    if strategy:
+        params = [
+            _param_context(name, default)
+            for name, default in StrategyRegistry.params_of(strategy)
+        ]
+    context = {
+        "request": request,
+        "params": params,
+    }
+    return templates.TemplateResponse("partials/strategy_params.html", context)
 
-        session_scope = SessionTopPageScope(request.app.state.app_scope)
-        sessions = session_scope.notifier.state.sessions
-        context = {
-            "request": request,
-            "exchanges": scope.exchange_symbol_accessor.exchanges,
-            "timeframes": [e.name for e in Timeframe],
-            "strategies": [name for name, _ in StrategyRegistry],
-            "message": "Backtest started.",
-            "sessions": sessions,
-        }
-        return templates.TemplateResponse("partials/backtest_modal.html", context)
 
-    return app
+@app.post("/htmx/backtest", response_class=HTMLResponse)
+async def backtest_submit(
+    request: Request,
+    exchange: str = Form(""),
+    symbol: str = Form(""),
+    timeframe: str = Form(Timeframe.ONE_MINUTE.name),
+    strategy: str | None = Form(None),
+    start_date: str | None = Form(None),
+    end_date: str | None = Form(None),
+):
+    scope = BacktestDialogScope(request.app.state.app_scope)
+    notifier = scope.notifier
+    form = await request.form()
+    params = _parse_strategy_args(form, strategy)
+    notifier.update(
+        source=exchange,
+        symbol=symbol,
+        timeframe=_parse_timeframe(timeframe),
+        strategy=strategy,
+        strategy_args=params,
+        start_date=_parse_date(start_date),
+        end_date=_parse_date(end_date),
+    )
+    notifier.on_request_backtest()
+    session_scope = SessionTopPageScope(request.app.state.app_scope)
+    sessions = session_scope.notifier.state.sessions
+    context = {
+        "request": request,
+        "exchanges": scope.exchange_symbol_accessor.exchanges,
+        "timeframes": [e.name for e in Timeframe],
+        "strategies": [name for name, _ in StrategyRegistry],
+        "message": "Backtest started.",
+        "sessions": sessions,
+    }
+
+    return templates.TemplateResponse("partials/backtest_modal.html", context)
 
 
 def _parse_date(value: str | None) -> datetime.date | None:

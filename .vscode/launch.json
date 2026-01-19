@@ -5,15 +5,7 @@
             "name": "HTMX",
             "type": "debugpy",
             "request": "launch",
-            "module": "uvicorn",
-            "args": [
-                "blueOcean.presentation.web:create_app",
-                "--factory",
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "8501"
-            ],
+            "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal"
         }
     ]
