@@ -45,6 +45,15 @@
           </button>
         </div>
 
+        <div
+          class="mb-4"
+          hx-get="/partials/counters"
+          hx-trigger="load, every 1s"
+          hx-swap="innerHTML"
+        >
+          <div class="skeleton h-24 w-full"></div>
+        </div>
+
         <div id="dashboard-content" hx-get="/partials/empty-state" hx-trigger="load" hx-swap="innerHTML">
           <div class="flex min-h-96 items-center justify-center"><span class="loading loading-ring loading-lg text-primary"></span></div>
         </div>

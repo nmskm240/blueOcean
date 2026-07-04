@@ -1,0 +1,66 @@
+<section id="counter-panel" class="space-y-4">
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h2 class="font-semibold">Worker processes</h2>
+      <p class="mt-1 text-xs text-base-content/40">Independent counters running outside the web server</p>
+    </div>
+    <button
+      class="btn btn-primary btn-sm"
+      hx-post="/counters"
+      hx-target="#counter-panel"
+      hx-swap="outerHTML"
+    ><span class="text-lg font-light">＋</span> New process</button>
+  </div>
+
+  {% if counters %}
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {% for counter in counters %}
+        <article class="card border border-base-content/10 bg-base-100 shadow-sm">
+          <div class="card-body gap-4 p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-mono text-sm font-semibold">{{ counter.id }}</h3>
+                  {% if counter.is_alive %}
+                    <span class="badge badge-success badge-soft badge-sm gap-1"><i class="size-1.5 rounded-full bg-success"></i>Running</span>
+                  {% else %}
+                    <span class="badge badge-error badge-soft badge-sm">Stopped</span>
+                  {% endif %}
+                </div>
+                <p class="mt-1 text-[11px] text-base-content/35">PID {{ counter.pid or '—' }}</p>
+              </div>
+              <button
+                class="btn btn-square btn-ghost btn-xs text-base-content/35 hover:text-error"
+                aria-label="プロセスを削除"
+                hx-delete="/counters/{{ counter.id }}"
+                hx-target="#counter-panel"
+                hx-swap="outerHTML"
+              >✕</button>
+            </div>
+
+            <div>
+              <div class="text-4xl font-bold tabular-nums text-primary">{{ counter.count }}</div>
+              <div class="mt-1 text-[10px] uppercase tracking-widest text-base-content/35">count</div>
+            </div>
+
+            <div class="card-actions justify-end">
+              {% if counter.is_alive %}
+                <button class="btn btn-error btn-outline btn-xs" hx-post="/counters/{{ counter.id }}/stop" hx-target="#counter-panel" hx-swap="outerHTML">Stop</button>
+              {% else %}
+                <button class="btn btn-primary btn-xs" hx-post="/counters/{{ counter.id }}/start" hx-target="#counter-panel" hx-swap="outerHTML">Start</button>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card border border-dashed border-base-content/15 bg-base-100/40">
+      <div class="card-body items-center py-9 text-center">
+        <div class="mb-1 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">⌁</div>
+        <p class="text-sm font-medium">No worker processes</p>
+        <p class="text-xs text-base-content/40">Create one to start counting.</p>
+      </div>
+    </div>
+  {% endif %}
+</section>
