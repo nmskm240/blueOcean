@@ -18,7 +18,6 @@
 			"extensions": [
 				"ms-python.python",
 				"openai.chatgpt",
-				"ms-toolsai.jupyter",
 				"ms-python.isort",
 				"ms-python.black-formatter",
 				"ms-toolsai.datawrangler",
