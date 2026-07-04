@@ -1,11 +1,9 @@
 {
 	"name": "blueOcean",
-	"build": {
-		"dockerfile": ".dockerfile",
-		"context": ".."
-	},
+	"dockerComposeFile": "compose.yaml",
+	"service": "app",
 	"forwardPorts": [
-		8501 // flet
+		8000
 	],
 	"features": {
 		"ghcr.io/warrenbuckley/codespace-features/sqlite": "1"

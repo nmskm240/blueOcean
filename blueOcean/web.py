@@ -4,11 +4,12 @@ from fastapi import FastAPI
 
 from blueOcean.api import router
 from blueOcean.process_manager import CounterProcessManager
+from blueOcean.settings import REDIS_URL
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    manager = CounterProcessManager()
+    manager = CounterProcessManager(REDIS_URL)
     app.state.process_manager = manager
     try:
         yield

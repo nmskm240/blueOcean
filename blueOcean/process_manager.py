@@ -1,85 +1,72 @@
-from dataclasses import dataclass
-from multiprocessing import Event, Process, Value
-from multiprocessing.synchronize import Event as EventType
+from multiprocessing import Process
 from threading import Lock
-from typing import Any
 from uuid import uuid4
 
+from blueOcean.counter_repository import RedisCounterRepository
 from blueOcean.counter_worker import run_counter
 
 
-@dataclass
-class CounterJob:
-    id: str
-    value: Any
-    process: Process | None = None
-    stop_event: EventType | None = None
-
-
 class CounterProcessManager:
-    def __init__(self) -> None:
-        self._jobs: dict[str, CounterJob] = {}
+    def __init__(self, redis_url: str) -> None:
+        self._redis_url = redis_url
+        self._repository = RedisCounterRepository(redis_url)
+        self._processes: dict[str, Process] = {}
         self._lock = Lock()
+        self._repository.ping()
 
     def create(self) -> str:
         counter_id = uuid4().hex[:8]
-        with self._lock:
-            self._jobs[counter_id] = CounterJob(counter_id, Value("Q", 0))
-        self.start(counter_id)
+        self._repository.create(counter_id)
+        self._launch(counter_id)
         return counter_id
 
     def start(self, counter_id: str) -> None:
         with self._lock:
-            job = self._jobs.get(counter_id)
-            if job is None:
+            current = self._processes.get(counter_id)
+            if current is not None and current.is_alive():
                 return
-            if job.process is not None and job.process.is_alive():
+            if current is not None:
+                current.join()
+            if not self._repository.prepare_start(counter_id):
                 return
-            if job.process is not None:
-                job.process.join()
+            self._launch_unlocked(counter_id)
 
-            with job.value.get_lock():
-                job.value.value = 0
+    def _launch(self, counter_id: str) -> None:
+        with self._lock:
+            self._launch_unlocked(counter_id)
 
-            job.stop_event = Event()
-            job.process = Process(
-                target=run_counter,
-                args=(job.stop_event, job.value, counter_id),
-                name=f"counter-{counter_id}",
-            )
-            job.process.start()
+    def _launch_unlocked(self, counter_id: str) -> None:
+        process = Process(
+            target=run_counter,
+            args=(self._redis_url, counter_id),
+            name=f"counter-{counter_id}",
+        )
+        process.start()
+        self._processes[counter_id] = process
 
     def stop(self, counter_id: str) -> None:
+        self._repository.request_stop(counter_id)
         with self._lock:
-            job = self._jobs.get(counter_id)
-            if job is None or job.process is None or not job.process.is_alive():
+            process = self._processes.get(counter_id)
+            if process is None or not process.is_alive():
                 return
-
-            job.stop_event.set()
-            job.process.join(timeout=3)
-            if job.process.is_alive():
-                job.process.terminate()
-                job.process.join()
+            process.join(timeout=3)
+            if process.is_alive():
+                process.terminate()
+                process.join()
+                self._repository.mark_stopped(counter_id)
 
     def delete(self, counter_id: str) -> None:
         self.stop(counter_id)
+        self._repository.delete(counter_id)
         with self._lock:
-            self._jobs.pop(counter_id, None)
+            self._processes.pop(counter_id, None)
 
-    def snapshot(self) -> list[dict[str, Any]]:
-        with self._lock:
-            return [
-                {
-                    "id": job.id,
-                    "count": job.value.value,
-                    "is_alive": job.process is not None and job.process.is_alive(),
-                    "pid": job.process.pid if job.process is not None else None,
-                }
-                for job in self._jobs.values()
-            ]
+    def snapshot(self) -> list[dict]:
+        return self._repository.list()
 
     def shutdown(self) -> None:
         with self._lock:
-            counter_ids = list(self._jobs)
+            counter_ids = list(self._processes)
         for counter_id in counter_ids:
             self.stop(counter_id)

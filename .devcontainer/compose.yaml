@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/.dockerfile
+    command: sleep infinity
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ..:/workspace:cached
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+volumes:
+  redis-data:
