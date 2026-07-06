@@ -34,7 +34,14 @@ dependencies = [
     "uvicorn",
     "jinja2",
     "python-multipart",
-    "redis>=8.0.1",
+    "cryptography>=46.0.0",
+    "pydantic-settings>=2.0.0",
+    "httpx2",
+]
+
+[project.optional-dependencies]
+metatrader = [
+    "MetaTrader5; platform_system == 'Windows'",
 ]
 
 [tool.setuptools.packages.find]

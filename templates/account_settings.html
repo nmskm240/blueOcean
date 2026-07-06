@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja" data-theme="night">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MT5アカウント — BlueOcean</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="min-h-screen bg-base-300 text-base-content">
+  {% if error %}
+  <dialog class="modal" open aria-labelledby="error-dialog-title">
+    <div class="modal-box border border-error/30">
+      <div class="mb-4 flex items-center gap-3 text-error">
+        <span class="grid size-9 place-items-center rounded-full bg-error/15 text-xl">!</span>
+        <h2 id="error-dialog-title" class="text-lg font-bold">保存できませんでした</h2>
+      </div>
+      <p class="text-sm text-base-content/70">{{ error }}</p>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn btn-primary">閉じる</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button aria-label="閉じる">close</button></form>
+  </dialog>
+  {% endif %}
+  <header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10">
+    <span class="text-lg font-bold">BlueOcean</span><span class="ml-4 text-sm text-base-content/50">MT5アカウント管理</span>
+  </header>
+  <main class="mx-auto max-w-5xl p-5 lg:p-10">
+    <div class="mb-8"><p class="text-xs font-bold tracking-[.18em] text-primary">ACCOUNTS</p><h1 class="mt-2 text-3xl font-bold">MetaTrader 5 アカウント</h1><p class="mt-2 text-sm text-base-content/55">MT5端末と取引口座の認証情報を管理します。</p></div>
+    <section class="card mb-8 border border-base-content/10 bg-base-100 shadow-xl"><div class="card-body">
+      <h2 class="card-title text-lg">アカウントを追加</h2>
+      <form action="/accounts" method="post" class="mt-3 grid gap-4 md:grid-cols-2">
+        {% include "partials/account_fields.html" %}
+        <div class="md:col-span-2 flex justify-end"><button class="btn btn-primary" type="submit">保存</button></div>
+      </form>
+    </div></section>
+    <h2 class="mb-4 text-lg font-bold">登録済みアカウント</h2>
+    {% if accounts %}<div class="grid gap-5">{% for account in accounts %}
+      <details class="collapse-arrow collapse border border-base-content/10 bg-base-100" {% if loop.first %}open{% endif %}>
+        <summary class="collapse-title flex items-center gap-3 font-semibold"><span class="status status-success"></span>{{ account.name }}<span class="ml-auto mr-7 text-xs font-normal text-base-content/45">#{{ account.connection.login }}</span></summary>
+        <div class="collapse-content"><form action="/accounts/{{ account.id.value }}" method="post" class="grid gap-4 pt-2 md:grid-cols-2">
+          {% with item=account %}{% include "partials/account_fields.html" %}{% endwith %}
+          <div class="md:col-span-2 flex justify-between gap-3"><button class="btn btn-error btn-outline" type="submit" formaction="/accounts/{{ account.id.value }}/delete" onclick="return confirm('このアカウントを削除しますか？')">削除</button><button class="btn btn-primary" type="submit">変更を保存</button></div>
+        </form></div>
+      </details>
+    {% endfor %}</div>{% else %}<div class="rounded-box border border-dashed border-base-content/20 p-10 text-center text-sm text-base-content/50">アカウントはまだ登録されていません。</div>{% endif %}
+  </main>
+</body>
+</html>

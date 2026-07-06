@@ -1,0 +1,24 @@
+<label class="form-control">
+  <span class="label-text mb-2">表示名 *</span>
+  <input class="input input-bordered w-full" name="name" required placeholder="デモ口座" value="{{ item.name if item is defined else '' }}">
+</label>
+<label class="form-control md:col-span-2">
+  <span class="label-text mb-2">terminal64.exe のパス</span>
+  <input class="input input-bordered w-full font-mono text-sm" name="path" required placeholder="C:\Program Files\MetaTrader 5\terminal64.exe" value="{{ item.connection.path if item is defined else '' }}">
+</label>
+<label class="form-control">
+  <span class="label-text mb-2">ログインID</span>
+  <input class="input input-bordered w-full" name="login" type="number" min="1" required placeholder="12345678" value="{{ item.connection.login if item is defined else '' }}">
+</label>
+<label class="form-control">
+  <span class="label-text mb-2">サーバー</span>
+  <input class="input input-bordered w-full" name="server" required placeholder="Broker-Demo" value="{{ item.connection.server if item is defined else '' }}">
+</label>
+<label class="form-control">
+  <span class="label-text mb-2">パスワード{% if item is defined and item.has_password %}（変更時のみ入力）{% endif %}</span>
+  <input class="input input-bordered w-full" name="password" type="password" autocomplete="new-password" placeholder="••••••••" {% if item is not defined %}required{% endif %}>
+</label>
+<label class="label mt-7 cursor-pointer justify-start gap-3">
+  <input class="checkbox checkbox-primary" name="portable" type="checkbox" {% if item is defined and item.portable %}checked{% endif %}>
+  <span class="label-text">ポータブルモードで起動</span>
+</label>
