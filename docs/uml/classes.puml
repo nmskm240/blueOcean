@@ -1,0 +1,289 @@
+@startuml
+
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+
+package domain {
+    class AccountId <<dataclass>> {
+        +value: str
+        +create(): AccountId
+    }
+
+    class Mt5Connection <<dataclass>> {
+        +path: str
+        +server: str
+        +login: int
+        +encrypted_password: bytes
+        +__post_init__(): void
+    }
+
+    class Account {
+        +id: AccountId
+        +name: str
+        +connection: Mt5Connection
+        +portable: bool
+        +has_password: bool
+    }
+
+    class AccountNotFoundError <<exception>>
+
+    interface IAccountRepository {
+        +list(): list<Account>
+        +get_by_id(id: AccountId): Account
+        +save(account: Account): AccountId
+        +delete_by_id(id: AccountId): void
+    }
+}
+
+package persistence {
+    class AccountSchema <<Peewee Model>> {
+        +id: CharField
+        +name: CharField
+        +path: CharField
+        +login: IntegerField
+        +password_encrypted: BlobField
+        +server: CharField
+        +portable: BooleanField
+        +created_at: DateTimeField
+        +updated_at: DateTimeField
+        +to_entity(): Account
+    }
+
+    class MT5AccountRepository {
+        -database: SqliteDatabase
+        +list(): list<Account>
+        +get_by_id(id: AccountId): Account
+        +save(account: Account): AccountId
+        +delete_by_id(id: AccountId): void
+    }
+}
+
+package api {
+    class AccountInput <<Pydantic>> {
+        +name: str
+        +path: str
+        +login: int | None
+        +server: str
+        +portable: bool
+    }
+
+    class AccountCreate <<Pydantic>> {
+        +password: SecretStr
+    }
+
+    class AccountUpdate <<Pydantic>> {
+        +password: SecretStr | None
+    }
+
+    class AccountOutput <<Pydantic>> {
+        +id: str
+        +name: str
+        +path: str
+        +login: int | None
+        +server: str
+        +portable: bool
+        +has_password: bool
+    }
+}
+
+package "usecases.py" as usecases {
+    class CreateAccountInput <<dataclass>> {
+        +name: str
+        +path: str
+        +login: int | None
+        +password: str
+        +server: str
+        +portable: bool
+    }
+
+    class UpdateAccountInput <<dataclass>> {
+        +account_id: AccountId
+        +name: str
+        +path: str
+        +login: int | None
+        +password: str | None
+        +server: str
+        +portable: bool
+    }
+
+    class CreateAccountUseCase {
+        -_repository: IAccountRepository
+        -_cipher: Fernet
+        +execute(input: CreateAccountInput): Account
+    }
+
+    class ListAccountsUseCase {
+        -_repository: IAccountRepository
+        +execute(): list<Account>
+    }
+
+    class UpdateAccountUseCase {
+        -_repository: IAccountRepository
+        -_cipher: Fernet
+        +execute(input: UpdateAccountInput): Account
+    }
+
+    class DeleteAccountUseCase {
+        -_repository: IAccountRepository
+        +execute(id: AccountId): void
+    }
+}
+
+package configuration {
+    class Settings <<Pydantic Settings>> {
+        +sqlite_path: Path
+        +mt5_secret_key: SecretStr
+    }
+
+    class SettingsModule <<Injector Module>> {
+        -settings: Settings
+        +configure(binder: Binder): void
+    }
+
+    class DatabaseModule <<Injector Module>> {
+        +database(settings: Settings): SqliteDatabase
+        +account_repository(database: SqliteDatabase): IAccountRepository
+    }
+
+    class SecurityModule <<Injector Module>> {
+        +password_cipher(settings: Settings): Fernet
+    }
+}
+
+package metatrader {
+    class MT5ConnectionError <<exception>>
+
+    class MT5Client {
+        +mt5: Any
+        +path: str | None
+        +login: int | None
+        +password: str | None
+        +server: str | None
+        +timeout: int
+        +portable: bool
+        +connect(): void
+        +shutdown(): void
+        +last_error(): Any
+        +ensure_symbol(symbol: str): Any
+        +copy_rates_from_pos(symbol: str, timeframe: int, start: int, count: int)
+        +symbol_info_tick(symbol: str)
+        +account_info()
+        +positions_get(symbol: str | None)
+        +order_send(request: dict[str, Any])
+        +timeframe(name: str): int
+    }
+
+    class MT5Store {
+        +client: MT5Client
+        -_users: int
+        -_lock: RLock
+        +start(): void
+        +stop(): void
+        +getdata(**kwargs): MT5Data
+        +getbroker(**kwargs): MT5Broker
+    }
+
+    class MT5Data <<Backtrader DataBase>> {
+        -_store: MT5Store
+        -_symbol: str
+        -_rows: list<Any>
+        -_last_time: int
+        -_next_poll: float
+        -_timeframe: int
+        +islive(): bool
+        +start(): void
+        +stop(): void
+        -_load()
+    }
+
+    class MT5Broker <<Backtrader BrokerBase>> {
+        -_store: MT5Store
+        -_notifications: deque
+        -_orders: dict<int, Order>
+        +start(): void
+        +stop(): void
+        +getcash(): float
+        +getvalue(datas=None): float
+        +getposition(data, clone=True)
+        +buy(owner, data, size, price=None, plimit=None, exectype=None, **kwargs)
+        +sell(owner, data, size, price=None, plimit=None, exectype=None, **kwargs)
+        +submit(order, check=True)
+        +cancel(order)
+        +get_notification()
+        -_transmit(order)
+        -_order_type(order, mt5)
+        -_notify(order): void
+    }
+}
+
+Account *-- AccountId
+Account *-- Mt5Connection
+IAccountRepository ..> Account
+IAccountRepository ..> AccountId
+IAccountRepository ..> AccountNotFoundError : raises
+
+MT5AccountRepository ..|> IAccountRepository
+MT5AccountRepository --> AccountSchema : reads/writes
+MT5AccountRepository ..> Account : maps
+MT5AccountRepository ..> AccountId
+MT5AccountRepository ..> AccountNotFoundError : raises
+AccountSchema ..> Account : to_entity()
+AccountSchema ..> Mt5Connection : creates
+AccountSchema ..> AccountId : creates
+
+AccountCreate --|> AccountInput
+AccountUpdate --|> AccountInput
+AccountOutput ..> Account : built from
+AccountInput ..> CreateAccountInput : maps to
+AccountInput ..> UpdateAccountInput : maps to
+CreateAccountInput ..> CreateAccountUseCase : payload for
+UpdateAccountInput ..> UpdateAccountUseCase : payload for
+
+CreateAccountUseCase --> IAccountRepository : uses
+CreateAccountUseCase --> Account : creates/returns
+CreateAccountUseCase --> Mt5Connection : creates
+CreateAccountUseCase ..> Fernet : encrypts password
+ListAccountsUseCase --> IAccountRepository : uses
+ListAccountsUseCase --> Account : returns
+UpdateAccountUseCase --> IAccountRepository : uses
+UpdateAccountUseCase --> Account : creates/returns
+UpdateAccountUseCase --> Mt5Connection : creates
+UpdateAccountUseCase --> AccountId : uses
+UpdateAccountUseCase ..> AccountNotFoundError : raises
+UpdateAccountUseCase ..> Fernet : encrypts password
+DeleteAccountUseCase --> IAccountRepository : uses
+DeleteAccountUseCase --> AccountId : uses
+DeleteAccountUseCase ..> AccountNotFoundError : raises
+DatabaseModule ..> Settings
+DatabaseModule ..> MT5AccountRepository : provides
+DatabaseModule ..> IAccountRepository : binds
+SecurityModule ..> Settings
+SettingsModule *-- Settings
+
+MT5Store *-- MT5Client
+MT5Store ..> MT5Data : creates
+MT5Store ..> MT5Broker : creates
+MT5Client ..> MT5ConnectionError : raises
+MT5Data --> MT5Store : uses shared connection
+MT5Broker --> MT5Store : uses shared connection
+
+MT5Data --|> backtrader.DataBase
+MT5Broker --|> backtrader.BrokerBase
+
+note right of Mt5Connection
+  Validates an absolute local MT5 terminal path,
+  a non-empty server, a positive integer login,
+  and encrypted password bytes.
+end note
+
+note right of MT5Store
+  Reference-counts one MT5 terminal connection
+  shared by Backtrader feeds and broker instances.
+end note
+
+note right of MT5Broker
+  Supports Backtrader Market, Limit, and Stop orders
+  by translating them into MT5 order_send requests.
+end note
+
+@enduml
