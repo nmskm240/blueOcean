@@ -124,13 +124,15 @@ Redis market stream の実装に先行して、Strategy の登録・実行ライ
 
 責務は次のように分離する。
 
-- `StrategyConfig`: DBへ永続化する稼働設定。戦略実装キー、口座、シンボル、時間足、モード、パラメータを保持する。
+- `StrategyConfig`: DBへ永続化する稼働設定。戦略実装キー、任意の口座、シンボル、時間足、価格データsource、execution backend、パラメータを保持する。
 - `bt.Strategy`派生クラス: 売買ロジックの実装。DBエンティティを兼ねない。
 - `StrategyDefinition`: 実装キー、表示名、Strategyクラス、型付きパラメータ定義を関連付ける。
 - `StrategyRun`: 1回の実行履歴。状態、PID、heartbeat、開始・終了時刻、エラーを保持する。
 - `StrategySupervisor`: 1 Run = 1 child processとして起動・停止・監視する。
 - `StrategyService`: Web/API共通のapplication boundary。ルートからRepositoryとSupervisorの直接操作を排除する。
 - Backtrader Runner: child process内で`Cerebro`、Data Feed、Strategyを組み立てて`next()`を実行する。
+- `MarketDataSource`: Backtrader Data Feed生成port。`synthetic`、`yfinance`、将来のRedis/MT5確定足を差し替える。
+- `ExecutionBackend`: broker、初期資金、commission、analyzer、実行結果の抽出を差し替える。
 
 ```text
 StrategyConfig
@@ -145,7 +147,16 @@ StrategySupervisor ---> child process ---> Cerebro + Data Feed + Strategy
 StrategyRun (SQLite heartbeat/status/history)
 ```
 
-現在のData Feedはライフサイクル確認用の`SyntheticLiveData`であり、paper modeだけを許可する。demo/live modeは注文Gateway完成までfail-closedで拒否する。次段階でData FeedをRedis確定足consumerへ差し替えるが、StrategyクラスとStrategyConfigは変更しない。
+現在は次の組み合わせを許可する。
+
+- `synthetic + paper`: ライフサイクル、heartbeat、継続実行の確認。
+- `yfinance + backtest`: Yahoo Finance履歴をPandasDataへ変換し、Backtrader標準brokerで有限バックテストを実行。
+
+yfinance adapterはBlueOcean側のFX表記`EURUSD`をYahoo Finance ticker`EURUSD=X`へ変換する。株式`AAPL`や暗号資産`BTC-USD`はそのまま使用する。
+
+対応しないsource/backendの組み合わせはドメイン検証で拒否する。demo/live backendは注文Gateway完成までfail-closedとする。次段階でRedis確定足sourceを追加するが、Strategyクラスは変更しない。
+
+バックテストRunは`initial_cash`、`final_value`、`return_pct`、`trades`をresultとしてSQLiteへ保存する。yfinance利用時はMT5アカウントを必須としない。
 
 戦略追加は登録デコレーターを利用する。1つの`bt.Strategy`派生クラスを追加すると、Webフォーム、API定義、パラメータ検証、Runnerのクラス解決へ同じRegistryが反映される。
 
@@ -215,6 +226,9 @@ blueOcean/
     implementations.py # bt.Strategy subclasses
     registry.py        # loaded built-in strategy registry
     runner.py          # Cerebro composition and current paper feed
+    ports.py           # MarketDataSource, ExecutionBackend
+    adapters.py        # synthetic/yfinance data and paper/backtest backend
+    events.py          # typed RunnerEvent including result
     supervisor.py      # child process lifecycle
     repositories.py
     services.py        # shared application boundary for Web/API
@@ -450,6 +464,8 @@ Redis は AOF と persistent volume を使用する。ただし Redis を確定�
 - decorator-based Strategy registry
 - Backtrader `Cerebro`をchild processで実行
 - Synthetic paper feedで`next()`、heartbeat、stopを検証
+- yfinance履歴sourceとBacktrader backtest backend
+- backtest resultのRun永続化
 - `/strategies`、`/runs` Web UI
 - `/api/strategies`、`/api/strategy-definitions`、`/api/runs`
 - 起動中Runの二重作成防止と再起動時`lost`補正

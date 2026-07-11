@@ -10,6 +10,8 @@ node "Windows host" {
   component "StrategySupervisor\n(current local MVP)" as StrategySupervisor
   component "Backtrader Runner\nchild process" as Runner
   component "SyntheticLiveData\n(paper only)" as Synthetic
+  component "yfinance Adapter\n(historical)" as YFinance
+  component "Backtest Broker" as Backtest
   database "SQLite" as SQLite
   component "MetaTrader 5 Terminal" as MT5
 
@@ -19,6 +21,8 @@ node "Windows host" {
   Web --> StrategySupervisor : Strategy/Run control
   StrategySupervisor --> Runner : spawn/stop/monitor
   Runner --> Synthetic : current paper bars
+  Runner --> YFinance : optional historical bars
+  Runner --> Backtest : optional backtest execution
   Web --> SQLite : account/config/history
   StrategySupervisor --> SQLite : Run state/heartbeat
 }

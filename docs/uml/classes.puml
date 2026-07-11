@@ -271,7 +271,11 @@ package strategy {
         +account_id: str
         +symbol: str
         +timeframe: str
-        +mode: str
+        +data_source: str
+        +execution_backend: str
+        +history_period: str
+        +initial_cash: float
+        +commission: float
         +parameters: dict
     }
 
@@ -284,6 +288,7 @@ package strategy {
         +started_at: datetime
         +heartbeat_at: datetime | None
         +stopped_at: datetime | None
+        +result: dict | None
     }
 
     class ParameterDefinition <<dataclass>> {
@@ -339,6 +344,20 @@ package strategy {
     class SyntheticLiveData <<Backtrader DataBase>> {
         -_load()
     }
+
+    interface MarketDataSource {
+        +create_feed(config, stop_event, status_queue): DataBase
+    }
+
+    interface ExecutionBackend {
+        +configure(cerebro, config): void
+        +result(cerebro, strategies): dict
+    }
+
+    class SyntheticMarketDataSource
+    class YFinanceMarketDataSource
+    class PaperExecutionBackend
+    class BacktestExecutionBackend
 
     class StrategySupervisor {
         -_handles: dict<str, RunHandle>
@@ -466,6 +485,13 @@ BacktraderRunner --> backtrader.Cerebro : configures/runs
 BacktraderRunner ..> RunnerEvent : emits
 SyntheticLiveData --|> backtrader.DataBase
 SyntheticLiveData ..> RunnerEvent : heartbeat
+SyntheticMarketDataSource ..|> MarketDataSource
+YFinanceMarketDataSource ..|> MarketDataSource
+YFinanceMarketDataSource ..> backtrader.feeds.PandasData : creates
+PaperExecutionBackend ..|> ExecutionBackend
+BacktestExecutionBackend ..|> ExecutionBackend
+BacktraderRunner --> MarketDataSource : selects
+BacktraderRunner --> ExecutionBackend : selects/configures
 
 note right of Mt5Connection
   Validates an absolute local MT5 terminal path,
