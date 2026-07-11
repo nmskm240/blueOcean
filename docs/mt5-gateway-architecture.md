@@ -1,6 +1,6 @@
 # MT5 Gateway 調査・基本設計
 
-Status: Proposed  
+Status: Proposed
 Date: 2026-07-11
 
 ## 1. 結論
@@ -463,4 +463,3 @@ Backtrader の同期 order lifecycle と密結合し、冪等 command、再起�
 - MetaTrader 5 `initialize`: <https://www.mql5.com/en/docs/python_metatrader5/mt5initialize_py>
 - Docker Desktop networking: <https://docs.docker.com/desktop/features/networking/networking-how-tos/>
 - Redis Streams: <https://redis.io/docs/latest/develop/data-types/streams/>
-
