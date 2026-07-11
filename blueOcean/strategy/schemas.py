@@ -1,0 +1,61 @@
+import json
+from datetime import datetime, timezone
+
+from peewee import CharField, DateTimeField, ForeignKeyField, IntegerField, Model, TextField
+
+from blueOcean.database.schemas import AccountSchema, proxy
+from blueOcean.strategy.models import Strategy, StrategyRun
+
+
+class StrategySchema(Model):
+    id = CharField(primary_key=True)
+    name = CharField(unique=True)
+    account = ForeignKeyField(AccountSchema, backref="strategies", on_delete="RESTRICT")
+    symbol = CharField()
+    timeframe = CharField()
+    mode = CharField(default="paper")
+    parameters_json = TextField(default="{}")
+    created_at = DateTimeField(default=lambda: datetime.now(timezone.utc))
+    updated_at = DateTimeField(default=lambda: datetime.now(timezone.utc))
+
+    class Meta:
+        table_name = "strategies"
+        database = proxy
+
+    def to_entity(self) -> Strategy:
+        return Strategy(
+            id=self.id,
+            name=self.name,
+            account_id=self.account_id,
+            symbol=self.symbol,
+            timeframe=self.timeframe,
+            mode=self.mode,
+            parameters=json.loads(self.parameters_json),
+        )
+
+
+class StrategyRunSchema(Model):
+    id = CharField(primary_key=True)
+    strategy = ForeignKeyField(StrategySchema, backref="runs", on_delete="CASCADE")
+    state = CharField()
+    pid = IntegerField(null=True)
+    error = TextField(null=True)
+    started_at = DateTimeField()
+    heartbeat_at = DateTimeField(null=True)
+    stopped_at = DateTimeField(null=True)
+
+    class Meta:
+        table_name = "strategy_runs"
+        database = proxy
+
+    def to_entity(self) -> StrategyRun:
+        return StrategyRun(
+            id=self.id,
+            strategy_id=self.strategy_id,
+            state=self.state,
+            pid=self.pid,
+            error=self.error,
+            started_at=self.started_at,
+            heartbeat_at=self.heartbeat_at,
+            stopped_at=self.stopped_at,
+        )

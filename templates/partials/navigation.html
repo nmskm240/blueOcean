@@ -1,0 +1,8 @@
+<header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10">
+  <a class="text-lg font-bold" href="/accounts">BlueOcean</a>
+  <nav class="ml-8 flex gap-5 text-sm">
+    <a class="{% if active_nav == 'accounts' %}font-bold text-primary{% else %}link link-hover{% endif %}" href="/accounts">アカウント</a>
+    <a class="{% if active_nav == 'strategies' %}font-bold text-primary{% else %}link link-hover{% endif %}" href="/strategies">戦略</a>
+    <a class="{% if active_nav == 'runs' %}font-bold text-primary{% else %}link link-hover{% endif %}" href="/runs">Runs</a>
+  </nav>
+</header>

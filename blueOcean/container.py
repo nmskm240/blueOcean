@@ -6,6 +6,8 @@ from blueOcean.database.repositories import MT5AccountRepository
 from blueOcean.models import IAccountRepository
 from blueOcean.metatrader.workers import MT5WorkerManager
 from blueOcean.settings import Settings, get_settings
+from blueOcean.strategy.repositories import StrategyRepository, StrategyRunRepository
+from blueOcean.strategy.supervisor import StrategySupervisor
 
 
 class SettingsModule(Module):
@@ -44,12 +46,34 @@ class MT5Module(Module):
         return MT5WorkerManager(startup_timeout=settings.mt5_startup_timeout_seconds)
 
 
+class StrategyModule(Module):
+    @provider
+    @singleton
+    def strategy_repository(self) -> StrategyRepository:
+        return StrategyRepository()
+
+    @provider
+    @singleton
+    def strategy_run_repository(self) -> StrategyRunRepository:
+        return StrategyRunRepository()
+
+    @provider
+    @singleton
+    def strategy_supervisor(
+        self,
+        strategies: StrategyRepository,
+        runs: StrategyRunRepository,
+    ) -> StrategySupervisor:
+        return StrategySupervisor(strategies, runs)
+
+
 injector = Injector(
     [
         SettingsModule(get_settings()),
         DatabaseModule(),
         SecurityModule(),
         MT5Module(),
+        StrategyModule(),
     ]
 )
 

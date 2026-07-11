@@ -10,6 +10,8 @@ from blueOcean.container import get_injector
 from blueOcean.database.schemas import AccountSchema, proxy
 from blueOcean.metatrader.workers import MT5WorkerManager
 from blueOcean.logging import get_logger
+from blueOcean.strategy.schemas import StrategyRunSchema, StrategySchema
+from blueOcean.strategy.supervisor import StrategySupervisor
 
 
 logger = get_logger(__name__)
@@ -48,8 +50,11 @@ async def lifespan(app: FastAPI):
         Path(database_path).parent.mkdir(parents=True, exist_ok=True)
     proxy.initialize(database)
     with database.connection_context():
-        database.create_tables([AccountSchema], safe=True)
+        database.create_tables([AccountSchema, StrategySchema, StrategyRunSchema], safe=True)
+        strategy_supervisor = get_injector().get(StrategySupervisor)
+        strategy_supervisor.reconcile()
         try:
             yield
         finally:
+            strategy_supervisor.stop_all()
             get_injector().get(MT5WorkerManager).stop_all()
