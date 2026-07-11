@@ -91,6 +91,8 @@ def test_accounts_page_shows_add_link_without_registration_form():
 
     assert response.status_code == 200
     assert 'href="/accounts/new"' in response.text
+    assert 'href="/strategies"' in response.text
+    assert 'href="/runs"' in response.text
     assert 'name="path"' not in response.text
 
 

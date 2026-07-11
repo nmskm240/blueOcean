@@ -9,9 +9,7 @@
 </head>
 <body class="min-h-screen bg-base-300 text-base-content">
   {% if error %}<div class="alert alert-error mx-auto mt-5 max-w-5xl">{{ error }}</div>{% endif %}
-  <header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10">
-    <span class="text-lg font-bold">BlueOcean</span><span class="ml-4 text-sm text-base-content/50">MT5アカウント管理</span>
-  </header>
+  {% set active_nav = 'accounts' %}{% include "partials/navigation.html" %}
   <main class="mx-auto max-w-5xl p-5 lg:p-10">
     <div class="mb-8 flex items-end justify-between gap-4">
       <div><p class="text-xs font-bold tracking-[.18em] text-primary">ACCOUNTS</p><h1 class="mt-2 text-3xl font-bold">登録済みアカウント</h1><p class="mt-2 text-sm text-base-content/55">MT5アカウントの起動状態を管理します。</p></div>

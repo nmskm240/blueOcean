@@ -8,7 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="min-h-screen bg-base-300 text-base-content">
-  <header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10"><span class="text-lg font-bold">BlueOcean</span></header>
+  {% set active_nav = '' %}{% include "partials/navigation.html" %}
   <dialog class="modal" open aria-labelledby="unexpected-error-title">
     <div class="modal-box border border-error/30">
       <div class="mb-4 flex items-center gap-3 text-error"><span class="grid size-9 place-items-center rounded-full bg-error/15 text-xl">!</span><h1 id="unexpected-error-title" class="text-lg font-bold">予想外のエラーが発生しました</h1></div>

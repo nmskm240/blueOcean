@@ -8,7 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="min-h-screen bg-base-300 text-base-content">
-  <header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10"><a class="text-lg font-bold" href="/accounts">BlueOcean</a><span class="ml-4 text-sm text-base-content/50">MT5アカウント管理</span></header>
+  {% set active_nav = 'accounts' %}{% include "partials/navigation.html" %}
   <main class="mx-auto max-w-3xl p-5 lg:p-10">
     <a class="link link-hover text-sm text-base-content/55" href="/accounts">← アカウント一覧へ</a>
     <div class="my-7"><p class="text-xs font-bold tracking-[.18em] text-primary">{% if is_edit %}EDIT ACCOUNT{% else %}NEW ACCOUNT{% endif %}</p><h1 class="mt-2 text-3xl font-bold">{% if is_edit %}{{ account.name }} の設定{% else %}アカウントを追加{% endif %}</h1></div>
