@@ -1,0 +1,57 @@
+@startuml
+title Strategy Run lifecycle (current paper MVP)
+
+actor User
+participant "Web / API" as API
+participant StrategySupervisor as Supervisor
+database "SQLite\nStrategyRunRepository" as DB
+participant "Child process\nBacktraderRunner" as Runner
+participant Cerebro
+participant SyntheticLiveData as Feed
+participant "bt.Strategy" as Strategy
+
+User -> API: POST /api/runs\n{strategy_id}
+API -> Supervisor: start(strategy_id)
+Supervisor -> DB: active_for_strategy(strategy_id)
+alt active Run exists
+  DB --> Supervisor: active Run
+  Supervisor --> API: StrategyAlreadyRunningError
+  API --> User: 409 Conflict
+else no active Run
+  Supervisor -> DB: save(starting Run)
+  Supervisor -> Runner: spawn(config, stop_event, queue)
+  Runner -> Cerebro: create(stdstats=False)
+  Runner -> Feed: create(stop_event, queue)
+  Runner -> Cerebro: adddata(feed)
+  Runner -> Cerebro: addstrategy(definition.strategy_class, params)
+  Runner --> Supervisor: RunnerEvent(running)
+  Supervisor -> DB: state=running, heartbeat_at
+  loop each synthetic paper bar
+    Feed -> Strategy: next()
+    Feed --> Supervisor: RunnerEvent(heartbeat)
+    Supervisor -> DB: update heartbeat_at
+  end
+end
+
+User -> API: POST /api/runs/{run_id}/stop
+API -> Supervisor: stop(run_id)
+Supervisor -> Runner: stop_event.set()
+Feed -> Feed: _load() detects stop
+Feed --> Cerebro: end of data
+Cerebro --> Runner: run() returns
+Runner --> Supervisor: RunnerEvent(stopped)
+Supervisor -> DB: state=stopped, pid=null, stopped_at
+Supervisor --> API: stopped Run
+API --> User: 200 OK
+
+== Application restart ==
+API -> Supervisor: reconcile()
+Supervisor -> DB: active Runs -> lost
+
+note over Feed,Strategy
+SyntheticLiveData is an MVP boundary.
+Redis closed-bar data replaces Feed later;
+StrategyConfig and bt.Strategy stay unchanged.
+end note
+
+@enduml

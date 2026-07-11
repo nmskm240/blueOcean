@@ -118,6 +118,54 @@ Docker Compose の Redis は `127.0.0.1:6379:6379` のように localhost のみ
 - `event_id` に unique constraint を置き、再配送を無害化する。
 - MT5 path/password や公式 MT5 module を持たない。
 
+#### 現在の Strategy/Run MVP
+
+Redis market stream の実装に先行して、Strategy の登録・実行ライフサイクルを検証するローカル MVP を実装済みとする。このMVPは最終形の Docker strategy worker ではなく、Backtrader実行境界とSupervisorの状態管理を固めるための中間段階である。
+
+責務は次のように分離する。
+
+- `StrategyConfig`: DBへ永続化する稼働設定。戦略実装キー、口座、シンボル、時間足、モード、パラメータを保持する。
+- `bt.Strategy`派生クラス: 売買ロジックの実装。DBエンティティを兼ねない。
+- `StrategyDefinition`: 実装キー、表示名、Strategyクラス、型付きパラメータ定義を関連付ける。
+- `StrategyRun`: 1回の実行履歴。状態、PID、heartbeat、開始・終了時刻、エラーを保持する。
+- `StrategySupervisor`: 1 Run = 1 child processとして起動・停止・監視する。
+- `StrategyService`: Web/API共通のapplication boundary。ルートからRepositoryとSupervisorの直接操作を排除する。
+- Backtrader Runner: child process内で`Cerebro`、Data Feed、Strategyを組み立てて`next()`を実行する。
+
+```text
+StrategyConfig
+      | definition_key + parameters
+      v
+StrategyDefinition registry ---> bt.Strategy subclass
+      |
+      v
+StrategySupervisor ---> child process ---> Cerebro + Data Feed + Strategy
+      |
+      v
+StrategyRun (SQLite heartbeat/status/history)
+```
+
+現在のData Feedはライフサイクル確認用の`SyntheticLiveData`であり、paper modeだけを許可する。demo/live modeは注文Gateway完成までfail-closedで拒否する。次段階でData FeedをRedis確定足consumerへ差し替えるが、StrategyクラスとStrategyConfigは変更しない。
+
+戦略追加は登録デコレーターを利用する。1つの`bt.Strategy`派生クラスを追加すると、Webフォーム、API定義、パラメータ検証、Runnerのクラス解決へ同じRegistryが反映される。
+
+Run状態は次を使用する。
+
+```text
+starting -> running -> stopping -> stopped
+             |
+             +-----------> error
+application restart -----> lost
+```
+
+- `starting`: child process生成後、Runner準備中。
+- `running`: Cerebro実行開始済み。Data Feedからheartbeatを更新する。
+- `stopped`: stop eventを受けて正常終了。
+- `error`: Strategy初期化、Runner、processで回復不能な例外が発生。
+- `lost`: アプリ再起動時にDB上でactiveだったが、所有processを復元できないRun。
+- 同じStrategyConfigのactive Runは1つに限定する。
+- heartbeatとRun履歴はSQLiteを正本とし、Webプロセスのメモリだけに依存しない。
+
 ### 4.5 Control API
 
 初期段階では Windows Gateway のローカル運用・診断用とする。
@@ -162,7 +210,20 @@ blueOcean/
     models.py           # Phase 2
     ports.py            # Phase 2
   strategy/
-    backtrader_remote.py
+    models.py          # StrategyConfig, StrategyRun
+    definitions.py     # registry primitives and typed parameter definitions
+    implementations.py # bt.Strategy subclasses
+    registry.py        # loaded built-in strategy registry
+    runner.py          # Cerebro composition and current paper feed
+    supervisor.py      # child process lifecycle
+    repositories.py
+    services.py        # shared application boundary for Web/API
+    dependencies.py    # FastAPI dependency composition
+    schemas.py
+    migrations.py
+    routes_api.py
+    routes_pages.py
+    backtrader_remote.py # Phase 4 Redis-backed feed
 ```
 
 `MT5Store` は Backtrader の参照カウント接続用なので Gateway の接続所有には使わず、`MT5Client` のみ再利用する。`MT5Broker` も同期的な Backtrader Order と密結合しているため注文 Gateway の中核にはしない。
@@ -383,6 +444,18 @@ Redis は AOF と persistent volume を使用する。ただし Redis を確定�
 
 ## 13. 実装ロードマップ
 
+### Current: Strategy/Run lifecycle MVP
+
+- `StrategyConfig`、`StrategyDefinition`、`StrategyRun`を分離
+- decorator-based Strategy registry
+- Backtrader `Cerebro`をchild processで実行
+- Synthetic paper feedで`next()`、heartbeat、stopを検証
+- `/strategies`、`/runs` Web UI
+- `/api/strategies`、`/api/strategy-definitions`、`/api/runs`
+- 起動中Runの二重作成防止と再起動時`lost`補正
+
+完了済み範囲: Backtrader Strategyの生成・継続実行・heartbeat・停止・エラー遷移。未完了範囲: MT5確定足、Redis consumer、OrderIntent、Risk Gateway、注文実行。
+
 ### Phase 0: Characterization
 
 - `MT5Client`, `MT5Data`, `MT5Broker` の fake-module tests
@@ -457,7 +530,13 @@ tick 単位の低遅延が必要になれば有力だが、現段階の確定足
 
 Backtrader の同期 order lifecycle と密結合し、冪等 command、再起動復旧、部分約定照合に向かないため採用しない。
 
-## 16. 参考資料
+## 16. UML資料
+
+- [`uml/classes.puml`](uml/classes.puml): Account、MT5 worker、StrategyConfig、StrategyDefinition、Backtrader Strategy、Run/Supervisorのクラス関係。
+- [`uml/strategy-run-sequence.puml`](uml/strategy-run-sequence.puml): Run開始、Cerebro実行、heartbeat、停止、再起動時lost補正のシーケンス。
+- [`uml/components.puml`](uml/components.puml): 現在のローカルpaper MVPと、Redis／Docker／注文Gatewayを含む目標コンポーネント境界。
+
+## 17. 参考資料
 
 - MetaTrader 5 Python integration: <https://www.mql5.com/en/docs/python_metatrader5>
 - MetaTrader 5 `initialize`: <https://www.mql5.com/en/docs/python_metatrader5/mt5initialize_py>

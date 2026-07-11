@@ -1,0 +1,50 @@
+@startuml
+title BlueOcean components: current MVP and target boundary
+
+skinparam componentStyle rectangle
+
+node "Windows host" {
+  component "FastAPI Control Plane" as Web
+  component "MT5WorkerManager" as MT5Supervisor
+  component "MT5 Gateway\n(target)" as MT5Gateway
+  component "StrategySupervisor\n(current local MVP)" as StrategySupervisor
+  component "Backtrader Runner\nchild process" as Runner
+  component "SyntheticLiveData\n(paper only)" as Synthetic
+  database "SQLite" as SQLite
+  component "MetaTrader 5 Terminal" as MT5
+
+  Web --> MT5Supervisor : account start/stop/status
+  MT5Supervisor --> MT5 : MetaTrader5 Python API
+  MT5Gateway --> MT5 : local MetaTrader5 Python API
+  Web --> StrategySupervisor : Strategy/Run control
+  StrategySupervisor --> Runner : spawn/stop/monitor
+  Runner --> Synthetic : current paper bars
+  Web --> SQLite : account/config/history
+  StrategySupervisor --> SQLite : Run state/heartbeat
+}
+
+cloud "Target data plane" {
+  queue "Redis Streams\nclosed bars" as MarketStream
+  queue "Redis Streams\nOrderIntent/commands/results" as OrderStreams
+  component "Risk / Order Gateway" as OrderGateway
+  component "Docker Strategy Worker" as DockerRunner
+
+  DockerRunner --> MarketStream : consumer group
+  DockerRunner --> OrderStreams : publish OrderIntent
+  OrderGateway --> OrderStreams : validate/consume/result
+}
+
+MT5Gateway --> MarketStream : publishes completed bars
+OrderGateway --> MT5Gateway : idempotent order commands
+
+note right of Runner
+Current implementation executes real bt.Strategy,
+but consumes synthetic paper bars only.
+end note
+
+note right of DockerRunner
+Target replacement for the local StrategySupervisor/Runner.
+No MT5 credentials or terminal path in Docker.
+end note
+
+@enduml

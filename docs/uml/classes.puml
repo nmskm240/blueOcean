@@ -125,14 +125,35 @@ package "usecases.py" as usecases {
 
     class DeleteAccountUseCase {
         -_repository: IAccountRepository
-        +execute(id: AccountId): void
+        -_manager: MT5WorkerManager
+        +execute(account_id: AccountId): void
     }
+
+    class GetAccountUseCase {
+        -_repository: IAccountRepository
+        +execute(account_id: AccountId): Account
+    }
+
+    class StartMT5WorkerUseCase {
+        -_repository: IAccountRepository
+        -_cipher: Fernet
+        -_manager: MT5WorkerManager
+        +execute(account_id: AccountId): WorkerStatus
+    }
+
+    class StopMT5WorkerUseCase {
+        -_manager: MT5WorkerManager
+        +execute(account_id: AccountId): WorkerStatus
+    }
+
+    class AccountWorkerActiveError <<exception>>
 }
 
 package configuration {
     class Settings <<Pydantic Settings>> {
         +sqlite_path: Path
         +mt5_secret_key: SecretStr
+        +mt5_startup_timeout_seconds: float
     }
 
     class SettingsModule <<Injector Module>> {
@@ -147,6 +168,16 @@ package configuration {
 
     class SecurityModule <<Injector Module>> {
         +password_cipher(settings: Settings): Fernet
+    }
+
+    class MT5Module <<Injector Module>> {
+        +mt5_worker_manager(settings: Settings): MT5WorkerManager
+    }
+
+    class StrategyModule <<Injector Module>> {
+        +strategy_repository(): StrategyRepository
+        +strategy_run_repository(): StrategyRunRepository
+        +strategy_supervisor(...): StrategySupervisor
     }
 }
 
@@ -214,6 +245,130 @@ package metatrader {
         -_order_type(order, mt5)
         -_notify(order): void
     }
+
+    class WorkerStatus <<dataclass>> {
+        +state: str
+        +pid: int | None
+        +error: str | None
+    }
+
+    class MT5WorkerManager {
+        -_workers: dict<str, WorkerHandle>
+        -_startup_timeout: float
+        +start(account_id: str, connection: dict): WorkerStatus
+        +stop(account_id: str): WorkerStatus
+        +get_status(account_id: str): WorkerStatus
+        +get_statuses(): dict<str, WorkerStatus>
+        +stop_all(): void
+    }
+}
+
+package strategy {
+    class StrategyConfig <<dataclass>> {
+        +id: str
+        +name: str
+        +definition_key: str
+        +account_id: str
+        +symbol: str
+        +timeframe: str
+        +mode: str
+        +parameters: dict
+    }
+
+    class StrategyRun <<dataclass>> {
+        +id: str
+        +strategy_id: str
+        +state: str
+        +pid: int | None
+        +error: str | None
+        +started_at: datetime
+        +heartbeat_at: datetime | None
+        +stopped_at: datetime | None
+    }
+
+    class ParameterDefinition <<dataclass>> {
+        +name: str
+        +label: str
+        +value_type: type
+        +default: Any
+        +minimum: float | None
+        +parse(value): Any
+    }
+
+    class StrategyDefinition <<dataclass>> {
+        +key: str
+        +label: str
+        +strategy_class: type
+        +parameters: tuple<ParameterDefinition>
+        +validate(values: dict): dict
+    }
+
+    class StrategyRegistry <<registry>> {
+        +register_strategy(...): decorator
+        +get_strategy_definition(key): StrategyDefinition
+    }
+
+    class DummyHeartbeatStrategy <<Backtrader Strategy>>
+    class MovingAverageCrossStrategy <<Backtrader Strategy>> {
+        +next(): void
+    }
+
+    class StrategyRepository {
+        +list(): list<StrategyConfig>
+        +get(strategy_id: str): StrategyConfig
+        +save(strategy: StrategyConfig): StrategyConfig
+    }
+
+    class StrategyRunRepository {
+        +list(): list<StrategyRun>
+        +get(run_id: str): StrategyRun
+        +active_for_strategy(strategy_id: str): StrategyRun | None
+        +save(run: StrategyRun): StrategyRun
+        +mark_active_lost(): void
+    }
+
+    class StrategySchema <<Peewee Model>>
+    class StrategyRunSchema <<Peewee Model>>
+
+    class RunnerEvent <<dataclass>> {
+        +kind: str
+        +occurred_at: datetime
+        +error: str | None
+    }
+
+    class SyntheticLiveData <<Backtrader DataBase>> {
+        -_load()
+    }
+
+    class StrategySupervisor {
+        -_handles: dict<str, RunHandle>
+        +reconcile(): void
+        +start(strategy_id: str): StrategyRun
+        +stop(run_id: str): StrategyRun
+        +stop_all(): void
+    }
+
+    class StrategyService {
+        -_strategies: StrategyRepository
+        -_runs: StrategyRunRepository
+        -_supervisor: StrategySupervisor
+        +definitions(): list<StrategyDefinition>
+        +list_strategies(): list<StrategyConfig>
+        +get_strategy(strategy_id: str): StrategyConfig
+        +create_strategy(command): StrategyConfig
+        +list_runs(): list<StrategyRun>
+        +get_run(run_id: str): StrategyRun
+        +start_run(strategy_id: str): StrategyRun
+        +stop_run(run_id: str): StrategyRun
+    }
+
+    class BacktraderRunner <<process function>> {
+        +run_backtrader_strategy(config, stop_event, status_queue): void
+    }
+
+    class StrategyAlreadyRunningError <<exception>>
+    class StrategyNotFoundError <<exception>>
+    class StrategyRunNotFoundError <<exception>>
 }
 
 Account *-- AccountId
@@ -254,10 +409,22 @@ UpdateAccountUseCase ..> Fernet : encrypts password
 DeleteAccountUseCase --> IAccountRepository : uses
 DeleteAccountUseCase --> AccountId : uses
 DeleteAccountUseCase ..> AccountNotFoundError : raises
+DeleteAccountUseCase --> MT5WorkerManager : checks active state
+GetAccountUseCase --> IAccountRepository : uses
+StartMT5WorkerUseCase --> IAccountRepository : loads credentials
+StartMT5WorkerUseCase --> MT5WorkerManager : starts
+StopMT5WorkerUseCase --> MT5WorkerManager : stops
+UpdateAccountUseCase --> MT5WorkerManager : checks active state
+UpdateAccountUseCase ..> AccountWorkerActiveError : raises
 DatabaseModule ..> Settings
 DatabaseModule ..> MT5AccountRepository : provides
 DatabaseModule ..> IAccountRepository : binds
 SecurityModule ..> Settings
+MT5Module ..> Settings
+MT5Module ..> MT5WorkerManager : provides
+StrategyModule ..> StrategyRepository : provides
+StrategyModule ..> StrategyRunRepository : provides
+StrategyModule ..> StrategySupervisor : provides
 SettingsModule *-- Settings
 
 MT5Store *-- MT5Client
@@ -269,6 +436,36 @@ MT5Broker --> MT5Store : uses shared connection
 
 MT5Data --|> backtrader.DataBase
 MT5Broker --|> backtrader.BrokerBase
+MT5WorkerManager ..> WorkerStatus : returns
+MT5WorkerManager ..> MT5Client : child process owns
+
+StrategyConfig --> StrategyDefinition : definition_key
+StrategyConfig --> Account : account_id
+StrategyRun --> StrategyConfig : strategy_id
+StrategyDefinition *-- ParameterDefinition
+StrategyDefinition --> backtrader.Strategy : strategy_class
+StrategyRegistry o-- StrategyDefinition
+DummyHeartbeatStrategy --|> backtrader.Strategy
+MovingAverageCrossStrategy --|> backtrader.Strategy
+StrategyRepository --> StrategySchema : reads/writes
+StrategyRepository ..> StrategyConfig : maps
+StrategyRunRepository --> StrategyRunSchema : reads/writes
+StrategyRunRepository ..> StrategyRun : maps
+StrategySupervisor --> StrategyRepository
+StrategySupervisor --> StrategyRunRepository
+StrategySupervisor ..> BacktraderRunner : spawns
+StrategySupervisor ..> StrategyAlreadyRunningError : raises
+StrategyService --> StrategyRepository
+StrategyService --> StrategyRunRepository
+StrategyService --> StrategySupervisor
+StrategyService ..> StrategyConfig : creates/returns
+StrategyService ..> StrategyRun : returns
+BacktraderRunner --> StrategyRegistry : resolves class
+BacktraderRunner --> SyntheticLiveData : creates
+BacktraderRunner --> backtrader.Cerebro : configures/runs
+BacktraderRunner ..> RunnerEvent : emits
+SyntheticLiveData --|> backtrader.DataBase
+SyntheticLiveData ..> RunnerEvent : heartbeat
 
 note right of Mt5Connection
   Validates an absolute local MT5 terminal path,
@@ -284,6 +481,16 @@ end note
 note right of MT5Broker
   Supports Backtrader Market, Limit, and Stop orders
   by translating them into MT5 order_send requests.
+end note
+
+note right of StrategyConfig
+  Persistent configuration only.
+  It deliberately does not inherit bt.Strategy.
+end note
+
+note right of BacktraderRunner
+  Current MVP uses SyntheticLiveData in paper mode.
+  Redis closed-bar feed replaces it in Phase 4.
 end note
 
 @enduml
