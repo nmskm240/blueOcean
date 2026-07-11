@@ -4,6 +4,7 @@ from peewee import SqliteDatabase
 
 from blueOcean.database.repositories import MT5AccountRepository
 from blueOcean.models import IAccountRepository
+from blueOcean.metatrader.workers import MT5WorkerManager
 from blueOcean.settings import Settings, get_settings
 
 
@@ -36,11 +37,19 @@ class SecurityModule(Module):
         return Fernet(settings.mt5_secret_key.get_secret_value().encode())
 
 
+class MT5Module(Module):
+    @provider
+    @singleton
+    def mt5_worker_manager(self, settings: Settings) -> MT5WorkerManager:
+        return MT5WorkerManager(startup_timeout=settings.mt5_startup_timeout_seconds)
+
+
 injector = Injector(
     [
         SettingsModule(get_settings()),
         DatabaseModule(),
         SecurityModule(),
+        MT5Module(),
     ]
 )
 

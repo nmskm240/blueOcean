@@ -5,10 +5,16 @@ from blueOcean.models import Account, AccountId, AccountNotFoundError, Mt5Connec
 from blueOcean.routes.api import (
     get_create_account_usecase,
     get_delete_account_usecase,
+    get_account_usecase,
     get_list_accounts_usecase,
+    get_mt5_worker_manager,
+    get_start_mt5_worker_usecase,
+    get_stop_mt5_worker_usecase,
     get_update_account_usecase,
     router,
 )
+from blueOcean.usecases import AccountWorkerActiveError
+from blueOcean.metatrader.workers import WorkerStatus
 
 
 def make_account(
@@ -34,6 +40,31 @@ class ListAccountsUseCaseStub:
 
     def execute(self):
         return self.accounts
+
+
+class GetAccountUseCaseStub:
+    def __init__(self, account=None):
+        self.account = account
+
+    def execute(self, account_id):
+        if self.account is None:
+            raise AccountNotFoundError
+        return self.account
+
+
+class WorkerUseCaseStub:
+    def __init__(self, status):
+        self.status = status
+        self.account_id = None
+
+    def execute(self, account_id):
+        self.account_id = account_id
+        return self.status
+
+
+class WorkerManagerStub:
+    def get_status(self, account_id):
+        return WorkerStatus("error", 321, "login failed")
 
 
 class CreateAccountUseCaseStub:
@@ -66,14 +97,17 @@ class UpdateAccountUseCaseStub:
 
 
 class DeleteAccountUseCaseStub:
-    def __init__(self, *, not_found=False):
+    def __init__(self, *, not_found=False, error=None):
         self.not_found = not_found
+        self.error = error
         self.deleted_id = None
 
     def execute(self, account_id):
         self.deleted_id = account_id
         if self.not_found:
             raise AccountNotFoundError
+        if self.error:
+            raise self.error
 
 
 def make_client(dependency_overrides) -> TestClient:
@@ -125,6 +159,24 @@ def test_list_accounts_returns_accounts_without_password_value():
         },
     ]
     assert "encrypted-secret" not in response.text
+
+
+def test_get_account_returns_one_account():
+    client = make_client({get_account_usecase: lambda: GetAccountUseCaseStub(make_account())})
+
+    response = client.get("/api/accounts/account-1")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "account-1"
+    assert "encrypted-secret" not in response.text
+
+
+def test_get_account_returns_404_for_missing_account():
+    client = make_client({get_account_usecase: lambda: GetAccountUseCaseStub()})
+
+    response = client.get("/api/accounts/missing")
+
+    assert response.status_code == 404
 
 
 def test_create_account_passes_payload_to_usecase_and_returns_created_account():
@@ -254,6 +306,25 @@ def test_update_account_returns_422_when_path_is_invalid():
     assert usecase.input.path == "relative/terminal64.exe"
 
 
+def test_update_account_returns_409_while_worker_is_active():
+    usecase = UpdateAccountUseCaseStub(
+        error=AccountWorkerActiveError("MT5がrunningの間はアカウント設定を変更できません")
+    )
+    client = make_client({get_update_account_usecase: lambda: usecase})
+
+    response = client.put(
+        "/api/accounts/account-1",
+        json={
+            "name": "Demo",
+            "path": r"C:\MT5\terminal64.exe",
+            "login": 12345678,
+            "server": "Broker-Demo",
+        },
+    )
+
+    assert response.status_code == 409
+
+
 def test_delete_account_passes_id_to_usecase_and_returns_no_content():
     usecase = DeleteAccountUseCaseStub()
     client = make_client({get_delete_account_usecase: lambda: usecase})
@@ -272,3 +343,43 @@ def test_delete_account_returns_404_when_account_does_not_exist():
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Account not found"}
+
+
+def test_delete_account_returns_409_while_worker_is_active():
+    client = make_client(
+        {
+            get_delete_account_usecase: lambda: DeleteAccountUseCaseStub(
+                error=AccountWorkerActiveError("MT5がstartingの間はアカウント設定を変更できません")
+            )
+        }
+    )
+
+    response = client.delete("/api/accounts/account-1")
+
+    assert response.status_code == 409
+
+
+def test_worker_status_and_commands_are_available_via_api():
+    account = make_account()
+    start = WorkerUseCaseStub(WorkerStatus("starting", 123))
+    stop = WorkerUseCaseStub(WorkerStatus("stopped"))
+    client = make_client(
+        {
+            get_account_usecase: lambda: GetAccountUseCaseStub(account),
+            get_mt5_worker_manager: lambda: WorkerManagerStub(),
+            get_start_mt5_worker_usecase: lambda: start,
+            get_stop_mt5_worker_usecase: lambda: stop,
+        }
+    )
+
+    status_response = client.get("/api/accounts/account-1/worker")
+    start_response = client.post("/api/accounts/account-1/worker/start")
+    stop_response = client.post("/api/accounts/account-1/worker/stop")
+
+    assert status_response.json() == {"state": "error", "pid": 321, "error": "login failed"}
+    assert start_response.status_code == 202
+    assert start_response.json()["state"] == "starting"
+    assert stop_response.status_code == 200
+    assert stop_response.json()["state"] == "stopped"
+    assert start.account_id == AccountId("account-1")
+    assert stop.account_id == AccountId("account-1")

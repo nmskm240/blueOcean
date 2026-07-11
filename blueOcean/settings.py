@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     mt5_secret_key: SecretStr = Field(
         validation_alias="BLUEOCEAN_SECRET_KEY",
     )
+    mt5_startup_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        validation_alias="BLUEOCEAN_MT5_STARTUP_TIMEOUT_SECONDS",
+    )
 
 @lru_cache
 def get_settings() -> Settings:

@@ -12,8 +12,6 @@ class MT5AccountRepository(IAccountRepository):
 
     @inject
     def __init__(self, database: SqliteDatabase) -> None:
-        if database.is_closed():
-            raise RuntimeError("MT5AccountRepository requires an open database connection")
         self.database = database
 
     def list(self) -> list[Account]:

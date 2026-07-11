@@ -8,43 +8,38 @@
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="min-h-screen bg-base-300 text-base-content">
-  {% if error %}
-  <dialog class="modal" open aria-labelledby="error-dialog-title">
-    <div class="modal-box border border-error/30">
-      <div class="mb-4 flex items-center gap-3 text-error">
-        <span class="grid size-9 place-items-center rounded-full bg-error/15 text-xl">!</span>
-        <h2 id="error-dialog-title" class="text-lg font-bold">保存できませんでした</h2>
-      </div>
-      <p class="text-sm text-base-content/70">{{ error }}</p>
-      <div class="modal-action">
-        <form method="dialog"><button class="btn btn-primary">閉じる</button></form>
-      </div>
-    </div>
-    <form method="dialog" class="modal-backdrop"><button aria-label="閉じる">close</button></form>
-  </dialog>
-  {% endif %}
+  {% if error %}<div class="alert alert-error mx-auto mt-5 max-w-5xl">{{ error }}</div>{% endif %}
   <header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10">
     <span class="text-lg font-bold">BlueOcean</span><span class="ml-4 text-sm text-base-content/50">MT5アカウント管理</span>
   </header>
   <main class="mx-auto max-w-5xl p-5 lg:p-10">
-    <div class="mb-8"><p class="text-xs font-bold tracking-[.18em] text-primary">ACCOUNTS</p><h1 class="mt-2 text-3xl font-bold">MetaTrader 5 アカウント</h1><p class="mt-2 text-sm text-base-content/55">MT5端末と取引口座の認証情報を管理します。</p></div>
-    <section class="card mb-8 border border-base-content/10 bg-base-100 shadow-xl"><div class="card-body">
-      <h2 class="card-title text-lg">アカウントを追加</h2>
-      <form action="/accounts" method="post" class="mt-3 grid gap-4 md:grid-cols-2">
-        {% include "partials/account_fields.html" %}
-        <div class="md:col-span-2 flex justify-end"><button class="btn btn-primary" type="submit">保存</button></div>
-      </form>
-    </div></section>
-    <h2 class="mb-4 text-lg font-bold">登録済みアカウント</h2>
-    {% if accounts %}<div class="grid gap-5">{% for account in accounts %}
-      <details class="collapse-arrow collapse border border-base-content/10 bg-base-100" {% if loop.first %}open{% endif %}>
-        <summary class="collapse-title flex items-center gap-3 font-semibold"><span class="status status-success"></span>{{ account.name }}<span class="ml-auto mr-7 text-xs font-normal text-base-content/45">#{{ account.connection.login }}</span></summary>
-        <div class="collapse-content"><form action="/accounts/{{ account.id.value }}" method="post" class="grid gap-4 pt-2 md:grid-cols-2">
-          {% with item=account %}{% include "partials/account_fields.html" %}{% endwith %}
-          <div class="md:col-span-2 flex justify-between gap-3"><button class="btn btn-error btn-outline" type="submit" formaction="/accounts/{{ account.id.value }}/delete" onclick="return confirm('このアカウントを削除しますか？')">削除</button><button class="btn btn-primary" type="submit">変更を保存</button></div>
-        </form></div>
-      </details>
-    {% endfor %}</div>{% else %}<div class="rounded-box border border-dashed border-base-content/20 p-10 text-center text-sm text-base-content/50">アカウントはまだ登録されていません。</div>{% endif %}
+    <div class="mb-8 flex items-end justify-between gap-4">
+      <div><p class="text-xs font-bold tracking-[.18em] text-primary">ACCOUNTS</p><h1 class="mt-2 text-3xl font-bold">登録済みアカウント</h1><p class="mt-2 text-sm text-base-content/55">MT5アカウントの起動状態を管理します。</p></div>
+      <a class="btn btn-primary" href="/accounts/new">アカウントを追加</a>
+    </div>
+    {% if accounts %}<div class="grid gap-4">{% for account in accounts %}
+      {% set worker = worker_statuses.get(account.id.value) %}{% set state = worker.state if worker else 'stopped' %}
+      <section class="card border border-base-content/10 bg-base-100 shadow-lg" data-account-id="{{ account.id.value }}" data-worker-state="{{ state }}">
+        <div class="card-body gap-4 md:flex-row md:items-center">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-3"><span class="status {% if state == 'running' %}status-success{% elif state == 'starting' %}status-warning{% elif state == 'error' %}status-error{% else %}status-neutral{% endif %}"></span><h2 class="card-title">{{ account.name }}</h2><span class="badge badge-sm {% if state == 'running' %}badge-success{% elif state == 'starting' %}badge-warning{% elif state == 'error' %}badge-error{% else %}badge-ghost{% endif %}">{{ state }}</span></div>
+            <p class="mt-2 truncate text-sm text-base-content/55">#{{ account.connection.login }} · {{ account.connection.server }}</p>
+            {% if worker and worker.error %}<div class="alert alert-error mt-3 py-2 text-sm">{{ worker.error }}</div>{% endif %}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            {% if state in ('running', 'starting') %}<form action="/accounts/{{ account.id.value }}/stop" method="post"><button class="btn btn-error btn-outline" type="submit">MT5を停止</button></form>{% else %}<form action="/accounts/{{ account.id.value }}/start" method="post"><button class="btn btn-success" type="submit">{% if state == 'error' %}再試行{% else %}MT5を起動{% endif %}</button></form>{% endif %}
+            {% if state in ('starting', 'running') %}<span class="btn btn-disabled" title="MT5停止後に変更できます">設定を変更</span>{% else %}<a class="btn btn-outline" href="/accounts/{{ account.id.value }}">設定を変更</a>{% endif %}
+          </div>
+        </div>
+      </section>
+    {% endfor %}</div>{% else %}<div class="rounded-box border border-dashed border-base-content/20 p-12 text-center"><p class="text-base-content/55">アカウントはまだ登録されていません。</p><a class="btn btn-primary mt-5" href="/accounts/new">最初のアカウントを追加</a></div>{% endif %}
   </main>
+  <div class="toast toast-end toast-top z-50" id="worker-notifications" aria-live="assertive"></div>
+  <script>
+    const notificationArea = document.querySelector("#worker-notifications");
+    function showWorkerError(message) { const alert = document.createElement("div"); alert.className = "alert alert-error max-w-md shadow-lg"; alert.innerHTML = `<span><strong>MT5の起動に失敗しました</strong><br><span class="text-sm"></span></span>`; alert.querySelector(".text-sm").textContent = message || "不明なエラー"; notificationArea.appendChild(alert); window.setTimeout(() => alert.remove(), 15000); }
+    async function pollWorkerStatuses() { try { const response = await fetch("/accounts/worker-statuses", { cache: "no-store" }); if (!response.ok) return; const statuses = await response.json(); let reload = false; document.querySelectorAll("[data-account-id]").forEach((card) => { const status = statuses[card.dataset.accountId] || { state: "stopped", error: null }; if (status.state === card.dataset.workerState) return; card.dataset.workerState = status.state; if (status.state === "error") sessionStorage.setItem("blueocean-worker-error", status.error || "不明なエラー"); reload = true; }); if (reload) window.location.reload(); } catch (_) {} }
+    const pendingError = sessionStorage.getItem("blueocean-worker-error"); if (pendingError) { sessionStorage.removeItem("blueocean-worker-error"); showWorkerError(pendingError); } window.setInterval(pollWorkerStatuses, 2000);
+  </script>
 </body>
 </html>

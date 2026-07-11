@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja" data-theme="night">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if is_edit %}アカウント設定{% else %}アカウント追加{% endif %} — BlueOcean</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="min-h-screen bg-base-300 text-base-content">
+  <header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10"><a class="text-lg font-bold" href="/accounts">BlueOcean</a><span class="ml-4 text-sm text-base-content/50">MT5アカウント管理</span></header>
+  <main class="mx-auto max-w-3xl p-5 lg:p-10">
+    <a class="link link-hover text-sm text-base-content/55" href="/accounts">← アカウント一覧へ</a>
+    <div class="my-7"><p class="text-xs font-bold tracking-[.18em] text-primary">{% if is_edit %}EDIT ACCOUNT{% else %}NEW ACCOUNT{% endif %}</p><h1 class="mt-2 text-3xl font-bold">{% if is_edit %}{{ account.name }} の設定{% else %}アカウントを追加{% endif %}</h1></div>
+    {% if error %}<div class="alert alert-error mb-5">{{ error }}</div>{% endif %}
+    {% if locked %}<div class="alert alert-warning mb-5">MT5の稼働中または起動待ち中は設定を変更できません。先にMT5を停止してください。</div>{% endif %}
+    <section class="card border border-base-content/10 bg-base-100 shadow-xl"><div class="card-body">
+      <form action="{% if is_edit %}/accounts/{{ account.id.value }}{% else %}/accounts{% endif %}" method="post" class="grid gap-4 md:grid-cols-2">
+        <fieldset class="contents" {% if locked %}disabled{% endif %}>
+        {% include "partials/account_fields.html" %}
+        </fieldset>
+        <div class="md:col-span-2 flex justify-between gap-3">
+          {% if is_edit and not locked %}<button class="btn btn-error btn-outline" type="submit" formaction="/accounts/{{ account.id.value }}/delete" onclick="return confirm('このアカウントを削除しますか？')">削除</button>{% else %}<span></span>{% endif %}
+          <div class="flex gap-2"><a class="btn btn-ghost" href="/accounts">{% if locked %}一覧へ戻る{% else %}キャンセル{% endif %}</a>{% if not locked %}<button class="btn btn-primary" type="submit">{% if is_edit %}変更を保存{% else %}登録{% endif %}</button>{% endif %}</div>
+        </div>
+      </form>
+    </div></section>
+  </main>
+  <script>
+    document.addEventListener("click", async (event) => { const button = event.target.closest("[data-mt5-path-picker]"); if (!button) return; const field = button.closest("label"); const input = field.querySelector('input[name="path"]'); const error = field.querySelector("[data-mt5-path-error]"); button.disabled = true; error.classList.add("hidden"); try { const response = await fetch("/dialogs/mt5-terminal"); const result = await response.json(); if (!response.ok) throw new Error(result.detail || "ファイル選択画面を開けませんでした"); if (result.path) input.value = result.path; } catch (exception) { error.textContent = exception.message; error.classList.remove("hidden"); } finally { button.disabled = false; } });
+  </script>
+</body>
+</html>
