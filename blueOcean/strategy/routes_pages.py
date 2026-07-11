@@ -1,13 +1,13 @@
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from blueOcean.container import get_injector
 from blueOcean.strategy.dependencies import get_strategy_service
-from blueOcean.strategy.models import StrategyAlreadyRunningError
+from blueOcean.strategy.models import StrategyAlreadyRunningError, StrategyRunNotFoundError
 from blueOcean.strategy.registry import get_strategy_definition
 from blueOcean.strategy.services import CreateStrategyConfig, StrategyService
 from blueOcean.usecases import ListAccountsUseCase
@@ -128,6 +128,24 @@ def runs_page(
         request=request,
         name="runs.html",
         context={"runs": service.list_runs(), "strategy_names": names},
+    )
+
+
+@router.get("/runs/{run_id}", response_class=HTMLResponse)
+def run_detail_page(
+    run_id: str,
+    request: Request,
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
+):
+    try:
+        run = service.get_run(run_id)
+        strategy = service.get_strategy(run.strategy_id)
+    except StrategyRunNotFoundError:
+        raise HTTPException(status_code=404, detail="Strategy run not found")
+    return templates.TemplateResponse(
+        request=request,
+        name="run_detail.html",
+        context={"run": run, "strategy": strategy},
     )
 
 
