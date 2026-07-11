@@ -28,7 +28,11 @@ class StrategyRepository:
             "account": strategy.account_id,
             "symbol": strategy.symbol,
             "timeframe": strategy.timeframe,
-            "mode": strategy.mode,
+            "data_source": strategy.data_source,
+            "execution_backend": strategy.execution_backend,
+            "history_period": strategy.history_period,
+            "initial_cash": strategy.initial_cash,
+            "commission": strategy.commission,
             "parameters_json": json.dumps(strategy.parameters, ensure_ascii=False),
             "updated_at": datetime.now(timezone.utc),
         }
@@ -73,6 +77,7 @@ class StrategyRunRepository:
             "started_at": run.started_at,
             "heartbeat_at": run.heartbeat_at,
             "stopped_at": run.stopped_at,
+            "result_json": json.dumps(run.result) if run.result is not None else None,
         }
         StrategyRunSchema.insert(id=run.id, **values).on_conflict(
             conflict_target=[StrategyRunSchema.id], update=values

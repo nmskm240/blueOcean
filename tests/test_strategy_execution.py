@@ -2,6 +2,7 @@ from threading import Event
 from queue import Queue
 
 import backtrader as bt
+import pytest
 
 from blueOcean.strategy.registry import get_strategy_definition
 from blueOcean.strategy.implementations import MovingAverageCrossStrategy
@@ -39,31 +40,31 @@ def test_runner_executes_backtrader_and_emits_heartbeats():
         account_id="account-1",
         symbol="EURUSD",
         timeframe="H1",
-        mode="paper",
+        data_source="synthetic",
+        execution_backend="paper",
     )
 
     run_backtrader_strategy(config, stop_event, status_queue)
     events = []
     while not status_queue.empty():
-        events.append(status_queue.get().kind)
+        events.append(status_queue.get())
 
-    assert events[0] == "running"
-    assert events.count("heartbeat") >= 5
-    assert events[-1] == "stopped"
+    assert events[0].kind == "running"
+    assert sum(event.kind == "heartbeat" for event in events) >= 5
+    assert events[-1].kind == "stopped"
+    assert events[-1].result["equity_curve"]
+    assert "max_drawdown_pct" in events[-1].result
+    assert "net_profit" in events[-1].result
 
 
-def test_runner_rejects_demo_until_order_gateway_exists():
-    stop_event = Event()
-    status_queue = Queue()
-    config = StrategyConfig(
-        name="Demo test",
-        definition_key="dummy_heartbeat",
-        account_id="account-1",
-        symbol="EURUSD",
-        timeframe="H1",
-        mode="demo",
-    )
-
-    run_backtrader_strategy(config, stop_event, status_queue)
-
-    assert status_queue.get().kind == "error"
+def test_strategy_config_rejects_unsupported_data_execution_pair():
+    with pytest.raises(ValueError, match="組み合わせ"):
+        StrategyConfig(
+            name="Invalid pair",
+            definition_key="dummy_heartbeat",
+            account_id="account-1",
+            symbol="EURUSD",
+            timeframe="H1",
+            data_source="yfinance",
+            execution_backend="paper",
+        )

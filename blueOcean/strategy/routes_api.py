@@ -18,10 +18,14 @@ router = APIRouter(prefix="/api", tags=["Strategies"])
 class StrategyInput(BaseModel):
     name: str
     definition_key: str
-    account_id: str
+    account_id: str | None = None
     symbol: str
     timeframe: str
-    mode: str = "paper"
+    data_source: str = "synthetic"
+    execution_backend: str = "paper"
+    history_period: str = "1y"
+    initial_cash: float = 100_000.0
+    commission: float = 0.001
     parameters: dict = Field(default_factory=dict)
 
 
@@ -42,6 +46,7 @@ class RunOutput(BaseModel):
     started_at: datetime
     heartbeat_at: datetime | None
     stopped_at: datetime | None
+    result: dict | None
 
 
 @router.get("/strategy-definitions")

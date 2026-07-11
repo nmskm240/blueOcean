@@ -74,10 +74,14 @@ async def strategy_create(
     accounts: Annotated[ListAccountsUseCase, Depends(get_accounts)],
     name: str = Form(...),
     definition_key: str = Form(...),
-    account_id: str = Form(...),
+    account_id: str = Form(""),
     symbol: str = Form(...),
     timeframe: str = Form(...),
-    mode: str = Form("paper"),
+    data_source: str = Form("synthetic"),
+    execution_backend: str = Form("paper"),
+    history_period: str = Form("1y"),
+    initial_cash: float = Form(100_000.0),
+    commission: float = Form(0.001),
 ):
     try:
         submitted = await request.form()
@@ -92,10 +96,14 @@ async def strategy_create(
             CreateStrategyConfig(
                 name=name,
                 definition_key=definition_key,
-                account_id=account_id,
+                account_id=account_id or None,
                 symbol=symbol,
                 timeframe=timeframe,
-                mode=mode,
+                data_source=data_source,
+                execution_backend=execution_backend,
+                history_period=history_period,
+                initial_cash=initial_cash,
+                commission=commission,
                 parameters=parameters,
             )
         )

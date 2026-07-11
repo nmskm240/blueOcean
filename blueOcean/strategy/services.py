@@ -12,10 +12,14 @@ from blueOcean.strategy.supervisor import StrategySupervisor
 class CreateStrategyConfig:
     name: str
     definition_key: str
-    account_id: str
+    account_id: str | None
     symbol: str
     timeframe: str
-    mode: str = "paper"
+    data_source: str = "synthetic"
+    execution_backend: str = "paper"
+    history_period: str = "1y"
+    initial_cash: float = 100_000.0
+    commission: float = 0.001
     parameters: dict = field(default_factory=dict)
 
 

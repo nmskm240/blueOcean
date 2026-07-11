@@ -76,7 +76,8 @@ def test_strategy_and_run_api_flow():
             "account_id": "account-1",
             "symbol": "EURUSD",
             "timeframe": "H1",
-            "mode": "paper",
+            "data_source": "synthetic",
+            "execution_backend": "paper",
             "parameters": {"fast_period": 20, "slow_period": 50},
         },
     )
@@ -106,7 +107,8 @@ def test_strategy_rejects_invalid_mode():
             "account_id": "account-1",
             "symbol": "EURUSD",
             "timeframe": "H1",
-            "mode": "unknown",
+            "data_source": "yfinance",
+            "execution_backend": "paper",
         },
     )
 
@@ -124,3 +126,22 @@ def test_strategy_definitions_describe_typed_parameters():
         "fast_period",
         "slow_period",
     ]
+
+
+def test_yfinance_backtest_does_not_require_mt5_account():
+    client, strategies, _ = make_client()
+
+    response = client.post(
+        "/api/strategies",
+        json={
+            "name": "Independent backtest",
+            "definition_key": "dummy_heartbeat",
+            "symbol": "AAPL",
+            "timeframe": "D1",
+            "data_source": "yfinance",
+            "execution_backend": "backtest",
+        },
+    )
+
+    assert response.status_code == 201
+    assert strategies.items[response.json()["id"]].account_id is None

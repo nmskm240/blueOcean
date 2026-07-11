@@ -107,6 +107,7 @@ class StrategySupervisor:
                     state="stopped",
                     pid=None,
                     stopped_at=event.occurred_at,
+                    result=event.result,
                 )
                 with self._lock:
                     self._handles.pop(run_id, None)

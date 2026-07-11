@@ -219,6 +219,7 @@ dependencies = [
     { name = "sktime" },
     { name = "tenacity" },
     { name = "uvicorn" },
+    { name = "yfinance" },
 ]
 
 [package.optional-dependencies]
@@ -262,6 +263,7 @@ requires-dist = [
     { name = "sktime" },
     { name = "tenacity" },
     { name = "uvicorn" },
+    { name = "yfinance", specifier = ">=1.0" },
 ]
 provides-extras = ["metatrader"]
 
