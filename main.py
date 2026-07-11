@@ -3,9 +3,10 @@ import uvicorn
 
 from blueOcean.routes.api import router as api_router
 from blueOcean.routes.pages import router as pages_router
-from blueOcean.app import lifespan
+from blueOcean.app import lifespan, register_exception_handlers
 
 app = FastAPI(title="BlueOcean Account Manager", lifespan=lifespan)
+register_exception_handlers(app)
 app.include_router(pages_router)
 app.include_router(api_router)
 

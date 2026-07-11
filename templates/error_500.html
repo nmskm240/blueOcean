@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja" data-theme="night">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>予想外のエラー — BlueOcean</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="min-h-screen bg-base-300 text-base-content">
+  <header class="navbar border-b border-base-content/10 bg-base-100 px-5 lg:px-10"><span class="text-lg font-bold">BlueOcean</span></header>
+  <dialog class="modal" open aria-labelledby="unexpected-error-title">
+    <div class="modal-box border border-error/30">
+      <div class="mb-4 flex items-center gap-3 text-error"><span class="grid size-9 place-items-center rounded-full bg-error/15 text-xl">!</span><h1 id="unexpected-error-title" class="text-lg font-bold">予想外のエラーが発生しました</h1></div>
+      <p class="text-sm text-base-content/70">処理を完了できませんでした。詳細はアプリケーションログに記録されています。</p>
+      <div class="modal-action"><a class="btn btn-primary" href="/accounts">アカウント一覧へ戻る</a></div>
+    </div>
+  </dialog>
+</body>
+</html>
