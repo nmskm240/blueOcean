@@ -1,33 +1,18 @@
-from typing import Annotated
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from blueOcean.container import get_injector
+from blueOcean.strategy.dependencies import get_strategy_service
 from blueOcean.strategy.models import (
-    StrategyConfig,
     StrategyAlreadyRunningError,
     StrategyNotFoundError,
     StrategyRunNotFoundError,
 )
-from blueOcean.strategy.registry import STRATEGY_DEFINITIONS
-from blueOcean.strategy.repositories import StrategyRepository, StrategyRunRepository
-from blueOcean.strategy.supervisor import StrategySupervisor
+from blueOcean.strategy.services import CreateStrategyConfig, StrategyService
 
 router = APIRouter(prefix="/api", tags=["Strategies"])
-
-
-def get_strategies() -> StrategyRepository:
-    return get_injector().get(StrategyRepository)
-
-
-def get_runs() -> StrategyRunRepository:
-    return get_injector().get(StrategyRunRepository)
-
-
-def get_supervisor() -> StrategySupervisor:
-    return get_injector().get(StrategySupervisor)
 
 
 class StrategyInput(BaseModel):
@@ -60,7 +45,9 @@ class RunOutput(BaseModel):
 
 
 @router.get("/strategy-definitions")
-def list_strategy_definitions():
+def list_strategy_definitions(
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
+):
     return [
         {
             "key": definition.key,
@@ -76,22 +63,24 @@ def list_strategy_definitions():
                 for parameter in definition.parameters
             ],
         }
-        for definition in STRATEGY_DEFINITIONS.values()
+        for definition in service.definitions()
     ]
 
 
 @router.get("/strategies", response_model=list[StrategyOutput])
-def list_strategies(repository: Annotated[StrategyRepository, Depends(get_strategies)]):
-    return repository.list()
+def list_strategies(
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
+):
+    return service.list_strategies()
 
 
 @router.post("/strategies", response_model=StrategyOutput, status_code=201)
 def create_strategy(
     payload: StrategyInput,
-    repository: Annotated[StrategyRepository, Depends(get_strategies)],
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
 ):
     try:
-        return repository.save(StrategyConfig(**payload.model_dump()))
+        return service.create_strategy(CreateStrategyConfig(**payload.model_dump()))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -99,26 +88,26 @@ def create_strategy(
 @router.get("/strategies/{strategy_id}", response_model=StrategyOutput)
 def get_strategy(
     strategy_id: str,
-    repository: Annotated[StrategyRepository, Depends(get_strategies)],
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
 ):
     try:
-        return repository.get(strategy_id)
+        return service.get_strategy(strategy_id)
     except StrategyNotFoundError:
         raise HTTPException(status_code=404, detail="Strategy not found")
 
 
 @router.get("/runs", response_model=list[RunOutput])
-def list_runs(repository: Annotated[StrategyRunRepository, Depends(get_runs)]):
-    return repository.list()
+def list_runs(service: Annotated[StrategyService, Depends(get_strategy_service)]):
+    return service.list_runs()
 
 
 @router.post("/runs", response_model=RunOutput, status_code=status.HTTP_202_ACCEPTED)
 def start_run(
     payload: RunCreate,
-    supervisor: Annotated[StrategySupervisor, Depends(get_supervisor)],
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
 ):
     try:
-        return supervisor.start(payload.strategy_id)
+        return service.start_run(payload.strategy_id)
     except StrategyNotFoundError:
         raise HTTPException(status_code=404, detail="Strategy not found")
     except StrategyAlreadyRunningError as exc:
@@ -126,9 +115,12 @@ def start_run(
 
 
 @router.get("/runs/{run_id}", response_model=RunOutput)
-def get_run(run_id: str, repository: Annotated[StrategyRunRepository, Depends(get_runs)]):
+def get_run(
+    run_id: str,
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
+):
     try:
-        return repository.get(run_id)
+        return service.get_run(run_id)
     except StrategyRunNotFoundError:
         raise HTTPException(status_code=404, detail="Strategy run not found")
 
@@ -136,9 +128,9 @@ def get_run(run_id: str, repository: Annotated[StrategyRunRepository, Depends(ge
 @router.post("/runs/{run_id}/stop", response_model=RunOutput)
 def stop_run(
     run_id: str,
-    supervisor: Annotated[StrategySupervisor, Depends(get_supervisor)],
+    service: Annotated[StrategyService, Depends(get_strategy_service)],
 ):
     try:
-        return supervisor.stop(run_id)
+        return service.stop_run(run_id)
     except StrategyRunNotFoundError:
         raise HTTPException(status_code=404, detail="Strategy run not found")

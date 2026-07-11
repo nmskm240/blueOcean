@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from blueOcean.strategy.models import (
@@ -77,6 +78,9 @@ class StrategyRunRepository:
             conflict_target=[StrategyRunSchema.id], update=values
         ).execute()
         return self.get(run.id)
+
+    def update(self, run_id: str, **changes) -> StrategyRun:
+        return self.save(replace(self.get(run_id), **changes))
 
     def mark_active_lost(self) -> None:
         StrategyRunSchema.update(

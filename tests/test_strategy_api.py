@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from blueOcean.strategy.models import StrategyRun
-from blueOcean.strategy.routes_api import get_runs, get_strategies, get_supervisor, router
+from blueOcean.strategy.dependencies import get_strategy_service
+from blueOcean.strategy.routes_api import router
+from blueOcean.strategy.services import StrategyService
 
 
 class StrategyRepositoryStub:
@@ -56,10 +58,9 @@ def make_client():
     strategies = StrategyRepositoryStub()
     runs = RunRepositoryStub()
     supervisor = SupervisorStub(runs)
+    service = StrategyService(strategies, runs, supervisor)
     app = FastAPI()
-    app.dependency_overrides[get_strategies] = lambda: strategies
-    app.dependency_overrides[get_runs] = lambda: runs
-    app.dependency_overrides[get_supervisor] = lambda: supervisor
+    app.dependency_overrides[get_strategy_service] = lambda: service
     app.include_router(router)
     return TestClient(app), strategies, runs
 

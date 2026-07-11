@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import multiprocessing
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from queue import Empty
 from threading import RLock, Thread
@@ -55,7 +55,6 @@ class StrategySupervisor:
 
     def stop(self, run_id: str) -> StrategyRun:
         with self._lock:
-            run = self._runs.get(run_id)
             handle = self._handles.get(run_id)
             if handle is not None:
                 handle.stop_event.set()
@@ -64,13 +63,11 @@ class StrategySupervisor:
                     handle.process.terminate()
                     handle.process.join(1.0)
                 self._handles.pop(run_id, None)
-            return self._runs.save(
-                replace(
-                    run,
-                    state="stopped",
-                    pid=None,
-                    stopped_at=datetime.now(timezone.utc),
-                )
+            return self._runs.update(
+                run_id,
+                state="stopped",
+                pid=None,
+                stopped_at=datetime.now(timezone.utc),
             )
 
     def stop_all(self) -> None:
@@ -88,40 +85,39 @@ class StrategySupervisor:
             except Empty:
                 if not handle.process.is_alive():
                     with self._lock:
-                        run = self._runs.get(run_id)
-                        self._runs.save(
-                            replace(
-                                run,
-                                state="error",
-                                pid=None,
-                                error=f"Strategy process exited with code {handle.process.exitcode}",
-                                stopped_at=datetime.now(timezone.utc),
-                            )
+                        self._runs.update(
+                            run_id,
+                            state="error",
+                            pid=None,
+                            error=f"Strategy process exited with code {handle.process.exitcode}",
+                            stopped_at=datetime.now(timezone.utc),
                         )
                         self._handles.pop(run_id, None)
                     return
                 continue
-            run = self._runs.get(run_id)
             if event.kind == "running":
-                self._runs.save(replace(run, state="running", heartbeat_at=event.occurred_at))
+                self._runs.update(
+                    run_id, state="running", heartbeat_at=event.occurred_at
+                )
             elif event.kind == "heartbeat":
-                self._runs.save(replace(run, heartbeat_at=event.occurred_at))
+                self._runs.update(run_id, heartbeat_at=event.occurred_at)
             elif event.kind == "stopped":
-                self._runs.save(
-                    replace(run, state="stopped", pid=None, stopped_at=event.occurred_at)
+                self._runs.update(
+                    run_id,
+                    state="stopped",
+                    pid=None,
+                    stopped_at=event.occurred_at,
                 )
                 with self._lock:
                     self._handles.pop(run_id, None)
                 return
             elif event.kind == "error":
-                self._runs.save(
-                    replace(
-                        run,
-                        state="error",
-                        pid=None,
-                        error=event.error,
-                        stopped_at=event.occurred_at,
-                    )
+                self._runs.update(
+                    run_id,
+                    state="error",
+                    pid=None,
+                    error=event.error,
+                    stopped_at=event.occurred_at,
                 )
                 with self._lock:
                     self._handles.pop(run_id, None)
