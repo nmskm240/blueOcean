@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from blueOcean.container import get_injector
 from blueOcean.strategy.models import StrategyConfig, StrategyAlreadyRunningError
-from blueOcean.strategy.definitions import STRATEGY_DEFINITIONS, get_strategy_definition
+from blueOcean.strategy.registry import STRATEGY_DEFINITIONS, get_strategy_definition
 from blueOcean.strategy.repositories import StrategyRepository, StrategyRunRepository
 from blueOcean.strategy.supervisor import StrategySupervisor
 from blueOcean.usecases import ListAccountsUseCase

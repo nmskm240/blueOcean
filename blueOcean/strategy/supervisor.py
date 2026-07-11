@@ -84,7 +84,7 @@ class StrategySupervisor:
             if handle is None:
                 return
             try:
-                event, occurred_at = handle.status_queue.get(timeout=1.5)
+                event = handle.status_queue.get(timeout=1.5)
             except Empty:
                 if not handle.process.is_alive():
                     with self._lock:
@@ -102,25 +102,25 @@ class StrategySupervisor:
                     return
                 continue
             run = self._runs.get(run_id)
-            if event == "running":
-                self._runs.save(replace(run, state="running", heartbeat_at=occurred_at))
-            elif event == "heartbeat":
-                self._runs.save(replace(run, heartbeat_at=occurred_at))
-            elif event == "stopped":
+            if event.kind == "running":
+                self._runs.save(replace(run, state="running", heartbeat_at=event.occurred_at))
+            elif event.kind == "heartbeat":
+                self._runs.save(replace(run, heartbeat_at=event.occurred_at))
+            elif event.kind == "stopped":
                 self._runs.save(
-                    replace(run, state="stopped", pid=None, stopped_at=occurred_at)
+                    replace(run, state="stopped", pid=None, stopped_at=event.occurred_at)
                 )
                 with self._lock:
                     self._handles.pop(run_id, None)
                 return
-            elif event == "error":
+            elif event.kind == "error":
                 self._runs.save(
                     replace(
                         run,
                         state="error",
                         pid=None,
-                        error=str(occurred_at),
-                        stopped_at=datetime.now(timezone.utc),
+                        error=event.error,
+                        stopped_at=event.occurred_at,
                     )
                 )
                 with self._lock:

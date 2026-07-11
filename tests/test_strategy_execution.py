@@ -3,7 +3,7 @@ from queue import Queue
 
 import backtrader as bt
 
-from blueOcean.strategy.definitions import get_strategy_definition
+from blueOcean.strategy.registry import get_strategy_definition
 from blueOcean.strategy.implementations import MovingAverageCrossStrategy
 from blueOcean.strategy.models import StrategyConfig
 from blueOcean.strategy.runner import run_backtrader_strategy
@@ -17,7 +17,7 @@ class StopAfterHeartbeatsQueue(Queue):
 
     def put(self, item, *args, **kwargs):
         super().put(item, *args, **kwargs)
-        if item[0] == "heartbeat":
+        if item.kind == "heartbeat":
             self.remaining -= 1
             if self.remaining <= 0:
                 self.stop_event.set()
@@ -45,7 +45,7 @@ def test_runner_executes_backtrader_and_emits_heartbeats():
     run_backtrader_strategy(config, stop_event, status_queue)
     events = []
     while not status_queue.empty():
-        events.append(status_queue.get()[0])
+        events.append(status_queue.get().kind)
 
     assert events[0] == "running"
     assert events.count("heartbeat") >= 5
@@ -66,4 +66,4 @@ def test_runner_rejects_demo_until_order_gateway_exists():
 
     run_backtrader_strategy(config, stop_event, status_queue)
 
-    assert status_queue.get()[0] == "error"
+    assert status_queue.get().kind == "error"

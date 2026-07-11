@@ -11,7 +11,7 @@ from blueOcean.strategy.models import (
     StrategyNotFoundError,
     StrategyRunNotFoundError,
 )
-from blueOcean.strategy.definitions import STRATEGY_DEFINITIONS
+from blueOcean.strategy.registry import STRATEGY_DEFINITIONS
 from blueOcean.strategy.repositories import StrategyRepository, StrategyRunRepository
 from blueOcean.strategy.supervisor import StrategySupervisor
 

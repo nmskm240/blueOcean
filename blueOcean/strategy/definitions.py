@@ -64,7 +64,3 @@ def get_strategy_definition(key: str) -> StrategyDefinition:
         return STRATEGY_DEFINITIONS[key]
     except KeyError as exc:
         raise ValueError("未対応の戦略です") from exc
-
-
-# Importing implementations performs decorator-based registration.
-from blueOcean.strategy import implementations as _implementations  # noqa: E402,F401

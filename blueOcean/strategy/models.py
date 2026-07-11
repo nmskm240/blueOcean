@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from cuid2 import Cuid
-from blueOcean.strategy.definitions import get_strategy_definition
+from blueOcean.strategy.registry import get_strategy_definition
 
 
 def new_id() -> str:

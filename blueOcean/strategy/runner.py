@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import math
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import backtrader as bt
 
-from blueOcean.strategy.definitions import get_strategy_definition
+from blueOcean.strategy.registry import get_strategy_definition
 from blueOcean.strategy.models import StrategyConfig
+
+
+@dataclass(frozen=True)
+class RunnerEvent:
+    kind: str
+    occurred_at: datetime
+    error: str | None = None
 
 
 class SyntheticLiveData(bt.feed.DataBase):
@@ -48,7 +56,7 @@ class SyntheticLiveData(bt.feed.DataBase):
         self.lines.close[0] = close
         self.lines.volume[0] = 1
         self.lines.openinterest[0] = 0
-        self.p.status_queue.put(("heartbeat", timestamp))
+        self.p.status_queue.put(RunnerEvent("heartbeat", timestamp))
         return True
 
 
@@ -70,8 +78,10 @@ def run_backtrader_strategy(
             )
         )
         cerebro.addstrategy(definition.strategy_class, **config.parameters)
-        status_queue.put(("running", datetime.now(timezone.utc)))
+        status_queue.put(RunnerEvent("running", datetime.now(timezone.utc)))
         cerebro.run(runonce=False, preload=False)
-        status_queue.put(("stopped", datetime.now(timezone.utc)))
+        status_queue.put(RunnerEvent("stopped", datetime.now(timezone.utc)))
     except Exception as exc:
-        status_queue.put(("error", str(exc)))
+        status_queue.put(
+            RunnerEvent("error", datetime.now(timezone.utc), error=str(exc))
+        )
