@@ -4,12 +4,13 @@ from datetime import datetime, timezone
 from peewee import CharField, DateTimeField, ForeignKeyField, IntegerField, Model, TextField
 
 from blueOcean.database.schemas import AccountSchema, proxy
-from blueOcean.strategy.models import Strategy, StrategyRun
+from blueOcean.strategy.models import StrategyConfig, StrategyRun
 
 
 class StrategySchema(Model):
     id = CharField(primary_key=True)
     name = CharField(unique=True)
+    definition_key = CharField(default="dummy_heartbeat")
     account = ForeignKeyField(AccountSchema, backref="strategies", on_delete="RESTRICT")
     symbol = CharField()
     timeframe = CharField()
@@ -22,10 +23,11 @@ class StrategySchema(Model):
         table_name = "strategies"
         database = proxy
 
-    def to_entity(self) -> Strategy:
-        return Strategy(
+    def to_entity(self) -> StrategyConfig:
+        return StrategyConfig(
             id=self.id,
             name=self.name,
+            definition_key=self.definition_key,
             account_id=self.account_id,
             symbol=self.symbol,
             timeframe=self.timeframe,

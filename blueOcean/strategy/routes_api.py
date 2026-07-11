@@ -6,11 +6,12 @@ from pydantic import BaseModel, Field
 
 from blueOcean.container import get_injector
 from blueOcean.strategy.models import (
-    Strategy,
+    StrategyConfig,
     StrategyAlreadyRunningError,
     StrategyNotFoundError,
     StrategyRunNotFoundError,
 )
+from blueOcean.strategy.definitions import STRATEGY_DEFINITIONS
 from blueOcean.strategy.repositories import StrategyRepository, StrategyRunRepository
 from blueOcean.strategy.supervisor import StrategySupervisor
 
@@ -31,6 +32,7 @@ def get_supervisor() -> StrategySupervisor:
 
 class StrategyInput(BaseModel):
     name: str
+    definition_key: str
     account_id: str
     symbol: str
     timeframe: str
@@ -57,6 +59,27 @@ class RunOutput(BaseModel):
     stopped_at: datetime | None
 
 
+@router.get("/strategy-definitions")
+def list_strategy_definitions():
+    return [
+        {
+            "key": definition.key,
+            "label": definition.label,
+            "parameters": [
+                {
+                    "name": parameter.name,
+                    "label": parameter.label,
+                    "type": parameter.value_type.__name__,
+                    "default": parameter.default,
+                    "minimum": parameter.minimum,
+                }
+                for parameter in definition.parameters
+            ],
+        }
+        for definition in STRATEGY_DEFINITIONS.values()
+    ]
+
+
 @router.get("/strategies", response_model=list[StrategyOutput])
 def list_strategies(repository: Annotated[StrategyRepository, Depends(get_strategies)]):
     return repository.list()
@@ -68,7 +91,7 @@ def create_strategy(
     repository: Annotated[StrategyRepository, Depends(get_strategies)],
 ):
     try:
-        return repository.save(Strategy(**payload.model_dump()))
+        return repository.save(StrategyConfig(**payload.model_dump()))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 

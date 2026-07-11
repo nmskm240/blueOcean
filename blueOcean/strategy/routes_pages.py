@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from typing import Annotated
 
@@ -7,7 +6,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from blueOcean.container import get_injector
-from blueOcean.strategy.models import Strategy, StrategyAlreadyRunningError
+from blueOcean.strategy.models import StrategyConfig, StrategyAlreadyRunningError
+from blueOcean.strategy.definitions import STRATEGY_DEFINITIONS, get_strategy_definition
 from blueOcean.strategy.repositories import StrategyRepository, StrategyRunRepository
 from blueOcean.strategy.supervisor import StrategySupervisor
 from blueOcean.usecases import ListAccountsUseCase
@@ -37,7 +37,7 @@ def strategies_page(
     request: Request,
     repository: Annotated[StrategyRepository, Depends(get_strategies)],
 ):
-    return templates.TemplateResponse(request=request, name="strategies.html", context={"strategies": repository.list()})
+    return templates.TemplateResponse(request=request, name="strategies.html", context={"strategies": repository.list(), "definition_labels": {key: value.label for key, value in STRATEGY_DEFINITIONS.items()}})
 
 
 @router.get("/strategies/new", response_class=HTMLResponse)
@@ -45,25 +45,31 @@ def strategy_new_page(
     request: Request,
     accounts: Annotated[ListAccountsUseCase, Depends(get_accounts)],
 ):
-    return templates.TemplateResponse(request=request, name="strategy_form.html", context={"accounts": accounts.execute(), "error": None})
+    return templates.TemplateResponse(request=request, name="strategy_form.html", context={"accounts": accounts.execute(), "definitions": STRATEGY_DEFINITIONS.values(), "error": None})
 
 
 @router.post("/strategies")
-def strategy_create(
+async def strategy_create(
     request: Request,
     repository: Annotated[StrategyRepository, Depends(get_strategies)],
     accounts: Annotated[ListAccountsUseCase, Depends(get_accounts)],
     name: str = Form(...),
+    definition_key: str = Form(...),
     account_id: str = Form(...),
     symbol: str = Form(...),
     timeframe: str = Form(...),
     mode: str = Form("paper"),
-    parameters: str = Form("{}"),
 ):
     try:
-        repository.save(Strategy(name=name, account_id=account_id, symbol=symbol, timeframe=timeframe, mode=mode, parameters=json.loads(parameters)))
-    except (ValueError, json.JSONDecodeError) as exc:
-        return templates.TemplateResponse(request=request, name="strategy_form.html", context={"accounts": accounts.execute(), "error": str(exc)}, status_code=422)
+        submitted = await request.form()
+        definition = get_strategy_definition(definition_key)
+        parameters = {
+            parameter.name: submitted.get(f"parameter_{definition.key}_{parameter.name}")
+            for parameter in definition.parameters
+        }
+        repository.save(StrategyConfig(name=name, definition_key=definition_key, account_id=account_id, symbol=symbol, timeframe=timeframe, mode=mode, parameters=parameters))
+    except ValueError as exc:
+        return templates.TemplateResponse(request=request, name="strategy_form.html", context={"accounts": accounts.execute(), "definitions": STRATEGY_DEFINITIONS.values(), "error": str(exc)}, status_code=422)
     return RedirectResponse("/strategies", status_code=303)
 
 

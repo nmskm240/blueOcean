@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from peewee import SqliteDatabase
+from playhouse.migrate import SqliteMigrator, migrate
 
 from blueOcean.container import get_injector
 from blueOcean.database.schemas import AccountSchema, proxy
@@ -16,6 +17,19 @@ from blueOcean.strategy.supervisor import StrategySupervisor
 
 logger = get_logger(__name__)
 templates = Jinja2Templates(directory=Path(__file__).parents[1] / "templates")
+
+
+def migrate_strategy_schema(database: SqliteDatabase) -> None:
+    columns = {column.name for column in database.get_columns("strategies")}
+    if "definition_key" not in columns:
+        migrator = SqliteMigrator(database)
+        migrate(
+            migrator.add_column(
+                "strategies",
+                "definition_key",
+                StrategySchema.definition_key,
+            )
+        )
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -51,6 +65,7 @@ async def lifespan(app: FastAPI):
     proxy.initialize(database)
     with database.connection_context():
         database.create_tables([AccountSchema, StrategySchema, StrategyRunSchema], safe=True)
+        migrate_strategy_schema(database)
         strategy_supervisor = get_injector().get(StrategySupervisor)
         strategy_supervisor.reconcile()
         try:

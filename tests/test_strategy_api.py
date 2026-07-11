@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from blueOcean.strategy.models import Strategy, StrategyRun
+from blueOcean.strategy.models import StrategyRun
 from blueOcean.strategy.routes_api import get_runs, get_strategies, get_supervisor, router
 
 
@@ -71,11 +71,12 @@ def test_strategy_and_run_api_flow():
         "/api/strategies",
         json={
             "name": "Dummy EURUSD",
+            "definition_key": "moving_average_cross",
             "account_id": "account-1",
             "symbol": "EURUSD",
             "timeframe": "H1",
             "mode": "paper",
-            "parameters": {"period": 20},
+            "parameters": {"fast_period": 20, "slow_period": 50},
         },
     )
     strategy_id = created.json()["id"]
@@ -85,6 +86,7 @@ def test_strategy_and_run_api_flow():
 
     assert created.status_code == 201
     assert strategies.items[strategy_id].symbol == "EURUSD"
+    assert strategies.items[strategy_id].parameters == {"fast_period": 20, "slow_period": 50}
     assert started.status_code == 202
     assert started.json()["state"] == "starting"
     assert stopped.status_code == 200
@@ -99,6 +101,7 @@ def test_strategy_rejects_invalid_mode():
         "/api/strategies",
         json={
             "name": "Invalid",
+            "definition_key": "dummy_heartbeat",
             "account_id": "account-1",
             "symbol": "EURUSD",
             "timeframe": "H1",
@@ -107,3 +110,16 @@ def test_strategy_rejects_invalid_mode():
     )
 
     assert response.status_code == 422
+
+
+def test_strategy_definitions_describe_typed_parameters():
+    client, _, _ = make_client()
+
+    response = client.get("/api/strategy-definitions")
+
+    assert response.status_code == 200
+    moving_average = next(item for item in response.json() if item["key"] == "moving_average_cross")
+    assert [item["name"] for item in moving_average["parameters"]] == [
+        "fast_period",
+        "slow_period",
+    ]

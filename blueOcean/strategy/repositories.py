@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from blueOcean.strategy.models import (
-    Strategy,
+    StrategyConfig,
     StrategyNotFoundError,
     StrategyRun,
     StrategyRunNotFoundError,
@@ -11,18 +11,19 @@ from blueOcean.strategy.schemas import StrategyRunSchema, StrategySchema
 
 
 class StrategyRepository:
-    def list(self) -> list[Strategy]:
+    def list(self) -> list[StrategyConfig]:
         return [row.to_entity() for row in StrategySchema.select().order_by(StrategySchema.name)]
 
-    def get(self, strategy_id: str) -> Strategy:
+    def get(self, strategy_id: str) -> StrategyConfig:
         row = StrategySchema.get_or_none(StrategySchema.id == strategy_id)
         if row is None:
             raise StrategyNotFoundError("Strategy not found")
         return row.to_entity()
 
-    def save(self, strategy: Strategy) -> Strategy:
+    def save(self, strategy: StrategyConfig) -> StrategyConfig:
         values = {
             "name": strategy.name,
+            "definition_key": strategy.definition_key,
             "account": strategy.account_id,
             "symbol": strategy.symbol,
             "timeframe": strategy.timeframe,

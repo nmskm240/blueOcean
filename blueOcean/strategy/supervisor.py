@@ -8,12 +8,7 @@ from threading import RLock, Thread
 
 from blueOcean.strategy.models import StrategyAlreadyRunningError, StrategyRun
 from blueOcean.strategy.repositories import StrategyRepository, StrategyRunRepository
-
-
-def run_dummy_strategy(stop_event, status_queue) -> None:
-    status_queue.put(("running", datetime.now(timezone.utc)))
-    while not stop_event.wait(1.0):
-        status_queue.put(("heartbeat", datetime.now(timezone.utc)))
+from blueOcean.strategy.runner import run_backtrader_strategy
 
 
 @dataclass
@@ -41,14 +36,14 @@ class StrategySupervisor:
 
     def start(self, strategy_id: str) -> StrategyRun:
         with self._lock:
-            self._strategies.get(strategy_id)
+            strategy = self._strategies.get(strategy_id)
             if self._runs.active_for_strategy(strategy_id) is not None:
                 raise StrategyAlreadyRunningError("この戦略は既に稼働しています")
             stop_event = self._context.Event()
             status_queue = self._context.Queue()
             process = self._context.Process(
-                target=run_dummy_strategy,
-                args=(stop_event, status_queue),
+                target=run_backtrader_strategy,
+                args=(strategy, stop_event, status_queue),
                 name=f"blueocean-strategy-{strategy_id}",
                 daemon=True,
             )
@@ -111,3 +106,23 @@ class StrategySupervisor:
                 self._runs.save(replace(run, state="running", heartbeat_at=occurred_at))
             elif event == "heartbeat":
                 self._runs.save(replace(run, heartbeat_at=occurred_at))
+            elif event == "stopped":
+                self._runs.save(
+                    replace(run, state="stopped", pid=None, stopped_at=occurred_at)
+                )
+                with self._lock:
+                    self._handles.pop(run_id, None)
+                return
+            elif event == "error":
+                self._runs.save(
+                    replace(
+                        run,
+                        state="error",
+                        pid=None,
+                        error=str(occurred_at),
+                        stopped_at=datetime.now(timezone.utc),
+                    )
+                )
+                with self._lock:
+                    self._handles.pop(run_id, None)
+                return

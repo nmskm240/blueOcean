@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from cuid2 import Cuid
+from blueOcean.strategy.definitions import get_strategy_definition
 
 
 def new_id() -> str:
@@ -11,8 +12,9 @@ def new_id() -> str:
 
 
 @dataclass(frozen=True)
-class Strategy:
+class StrategyConfig:
     name: str
+    definition_key: str
     account_id: str
     symbol: str
     timeframe: str
@@ -23,6 +25,8 @@ class Strategy:
     def __post_init__(self):
         if not self.name.strip():
             raise ValueError("戦略名は必須です")
+        validated_parameters = get_strategy_definition(self.definition_key).validate(self.parameters)
+        object.__setattr__(self, "parameters", validated_parameters)
         if not self.account_id.strip():
             raise ValueError("MT5アカウントは必須です")
         if not self.symbol.strip():
